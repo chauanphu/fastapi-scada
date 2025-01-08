@@ -1,11 +1,24 @@
 import logging
+import os
+from datetime import datetime
+# Create a logs directory if it doesn't exist
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+# Filename is logs/{current_date}.log
 
+file_name = datetime.now().strftime("%Y-%m-%d") + ".log"
+
+# Set up basic config first
 logging.basicConfig(
     level=logging.DEBUG,  # Capture all levels: DEBUG and above
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Log message format
     handlers=[
-        logging.FileHandler("app.log"),  # Log to a file named 'app.log'
+        logging.FileHandler(f"logs/{file_name}"),  # Log to a file named 'app.log'
         logging.StreamHandler()  # Also log to the console
     ]
 )
+
+# Restrict specific module logging
+logging.getLogger("pymongo.topology").setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)

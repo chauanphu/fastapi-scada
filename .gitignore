@@ -12,3 +12,6 @@ wheels/
 
 # Database
 mongo_data/
+
+# Logs
+logs/

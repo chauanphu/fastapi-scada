@@ -1,4 +1,3 @@
-from datetime import timedelta
 from redis import Redis
 from redis.exceptions import ConnectionError
 
