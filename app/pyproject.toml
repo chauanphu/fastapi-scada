@@ -1,5 +1,5 @@
 [project]
-name = "FastAPI Backend for SCADA"
+name = "fastapi-backend"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -14,5 +14,6 @@ dependencies = [
     "python-decouple==3.8",
     "python-jose==3.3.0",
     "pyyaml>=6.0.2",
+    "redis>=5.2.1",
     "uvicorn[standard]>=0.34.0",
 ]
