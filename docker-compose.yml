@@ -1,0 +1,38 @@
+version: '3.8'
+services:
+  # API Gateway
+  gateway:
+    build: .
+    container_name: auth-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 20
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src/config.yml:/app/config.yml
+    networks:
+      - my-network
+    env_file:
+      - ./.env
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    restart: always
+    volumes:
+      - ./mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge
+volumes:
+  mongo_data:
