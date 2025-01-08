@@ -1,9 +1,9 @@
 version: '3.8'
 services:
-  # API Gateway
-  gateway:
+  # FastAPI
+  app:
     build: .
-    container_name: auth-service
+    container_name: fastapi-scada
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 5s
@@ -11,14 +11,13 @@ services:
       retries: 20
     ports:
       - "3000:3000"
-    volumes:
-      - ./src/config.yml:/app/config.yml
     networks:
       - my-network
     env_file:
-      - ./.env
+      - ./app/.env
     depends_on:
       - mongodb
+      - redis-cache
 
   mongodb:
     image: mongo:6.0
@@ -31,8 +30,17 @@ services:
     networks:
       - my-network
 
+  redis-cache:
+    image: redis:6.0
+    container_name: redis-cache
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis_data:/data
+    networks:
+      - my-network
+
 networks:
   my-network:
     driver: bridge
-volumes:
-  mongo_data:

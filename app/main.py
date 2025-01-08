@@ -1,14 +1,24 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from routers import api_router
-from database import mongo
+from database import mongo, redis
 
 app = FastAPI(
         title="SCADA Traffic Light System",
         description="A SCADA system for controlling traffic lights",
         version="0.1.0",
     )
+
+@asynccontextmanager
+async def setup():
+    try:
+        redis.get_redis_connection()
+        yield
+    finally:
+        await mongo.client.close()
+
 app.include_router(api_router)
     
 origins = [
@@ -26,4 +36,4 @@ app.add_middleware(
 )
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, log_level="info")

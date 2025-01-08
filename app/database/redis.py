@@ -2,12 +2,14 @@ from redis import Redis
 from redis.exceptions import ConnectionError
 
 from utils.config import REDIS_HOST, REDIS_PORT
+from utils.logging import logger
 
 def get_redis_connection():
     try:
-        redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
+        redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0, retry_on_error=5)
         return redis
     except ConnectionError:
+        logger.error(f"Unable to connect to Redis server at {REDIS_HOST}:{REDIS_PORT}")
         return None
     
 # Add a refresh token into Redis list with expiration time
