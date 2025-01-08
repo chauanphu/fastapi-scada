@@ -2,9 +2,11 @@ from datetime import timedelta
 from redis import Redis
 from redis.exceptions import ConnectionError
 
+from utils.config import REDIS_HOST, REDIS_PORT
+
 def get_redis_connection():
     try:
-        redis = Redis()
+        redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
         return redis
     except ConnectionError:
         return None

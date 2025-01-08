@@ -2,11 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from routers import api_router
+from database import mongo
 
 app = FastAPI(
         title="SCADA Traffic Light System",
         description="A SCADA system for controlling traffic lights",
-        version="0.1.0"
+        version="0.1.0",
     )
 app.include_router(api_router)
     

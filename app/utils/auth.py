@@ -1,4 +1,5 @@
 #auth.py  
+from enum import Enum
 from typing import Annotated
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer   
@@ -10,14 +11,13 @@ from pydantic import ValidationError
 
 from models.auth import User  
 from database.redis import check_refresh_token
+from utils.config import ALGORITHM, SECRET_KEY
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")  
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  
 
-SECRET_KEY = "hdhfh5jdnb7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"  
-ALGORITHM = "HS256" 
-
-def get_user(username: str):  
+def get_user(username: str):
+    raise NotImplementedError  
     return None
 
 def authenticate_user(username: str, password: str) -> User | bool:  
@@ -61,10 +61,28 @@ def create_token(data: dict, expires_delta: timedelta | None = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)  
     return encoded_jwt
 
+class Role(Enum):  
+    SUPERADMIN = "superadmin"
+    ADMIN = "admin"
+    MONITOR = "monitor"
+    OPERATOR = "operator"
+    
+class Action(Enum):
+    READ = "read"
+    WRITE = "write"
+    DELETE = "delete"
+    UPDATE = "update"
+    COMMAND = "command"
+    MONITOR = "monitor"
+
 class RoleChecker:  
-  def __init__(self, allowed_roles):  
+  def __init__(self, allowed_roles: list[Role], action: Action):
     self.allowed_roles = allowed_roles  
-  
+    self.action = action
+
+  def _audit_log(self, user: User, action: Action):
+    raise NotImplementedError
+
   def __call__(self, user: Annotated[User, Depends(get_current_active_user)]):  
     if user.role in self.allowed_roles:  
       return True  

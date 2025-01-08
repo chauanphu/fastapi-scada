@@ -4,22 +4,18 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException  
 from fastapi.security import OAuth2PasswordRequestForm  
   
-from utils.auth import create_token, authenticate_user, validate_refresh_token  
+from utils.auth import Role, RoleChecker, create_token, authenticate_user, validate_refresh_token  
 # from data import fake_users_db, refresh_tokens  
 from models.auth import User, Token  
 from database.redis import set_refresh_token, remove_refresh_token
 
 app = FastAPI()  
   
-ACCESS_TOKEN_EXPIRE_MINUTES = 20  
-REFRESH_TOKEN_EXPIRE_MINUTES = 120  
-  
-@app.get("/hello")  
-def hello_func():  
-  return "Hello World"  
+ACCESS_TOKEN_EXPIRE_MINUTES = 20 # 20 minutes  
+REFRESH_TOKEN_EXPIRE_MINUTES = 120   # 2 hours
   
 @app.get("/data")  
-def get_data():  
+def get_data(_: Annotated[bool, Depends(RoleChecker(allowed_roles=[Role.ADMIN]))]):   
   return {"data": "This is important data"}   
   
 @app.post("/token")  
