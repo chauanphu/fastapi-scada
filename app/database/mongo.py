@@ -75,4 +75,6 @@ try:
 except Exception as e:
     logger.error(f"Error creating devices collection: {e}")
 
-audit_collection = create_time_collection("audit", ["metadata.username", "timestamp"]) 
+audit_collection = create_time_collection("audit", [("metadata.username",1), ("timestamp",1)]) 
+
+sensor_collection = create_time_collection("sensors", [("metadata.mac",1), ("timestamp",1)])

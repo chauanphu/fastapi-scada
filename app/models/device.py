@@ -1,9 +1,7 @@
 from typing import Optional
 
 from bson import ObjectId
-from pydantic import BaseModel, Field, EmailStr
-
-from models.auth import Role
+from pydantic import BaseModel, Field
 
 class Device(BaseModel):
   id: Optional[ObjectId] | Optional[str] = Field(alias="_id", default=None)  
