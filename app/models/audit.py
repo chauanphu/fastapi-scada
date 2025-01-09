@@ -25,3 +25,10 @@ class AuditLog(BaseModel):
         populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}  # Ensures ObjectId is serialized to a string
+
+class AuditQuery(BaseModel):
+    username: str | None = None
+    action: str | None = None
+    resource: str | None = None
+    start: datetime | None = None
+    end: datetime | None = None
