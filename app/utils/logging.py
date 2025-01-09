@@ -21,5 +21,6 @@ logging.basicConfig(
 # Restrict specific module logging
 logging.getLogger("pymongo.topology").setLevel(logging.WARNING)
 logging.getLogger("asyncio").setLevel(logging.WARNING)
+logging.getLogger("watchfiles.main").setLevel(logging.WARNING)  # Changed from NOTSET to WARNING
 
 logger = logging.getLogger(__name__)

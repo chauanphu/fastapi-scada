@@ -68,6 +68,7 @@ class Role(Enum):
     OPERATOR = "operator"
     
 class Action(Enum):
+    LOGIN = "login"
     READ = "read"
     WRITE = "write"
     DELETE = "delete"

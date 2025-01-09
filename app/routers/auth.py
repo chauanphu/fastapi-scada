@@ -1,24 +1,29 @@
 from datetime import timedelta  
 from typing import Annotated  
   
-from fastapi import Depends, FastAPI, HTTPException  
+from fastapi import APIRouter, Depends, HTTPException  
 from fastapi.security import OAuth2PasswordRequestForm  
   
-from utils.auth import Role, RoleChecker, create_token, authenticate_user, validate_refresh_token  
+from utils.auth import Action, Role, RoleChecker, create_token, authenticate_user, validate_refresh_token  
 # from data import fake_users_db, refresh_tokens  
 from models.auth import User, Token  
 from database.redis import set_refresh_token, remove_refresh_token
 
-app = FastAPI()  
+router = APIRouter(
+    prefix="/auth",
+    tags=["auth"]
+) 
   
 ACCESS_TOKEN_EXPIRE_MINUTES = 20 # 20 minutes  
 REFRESH_TOKEN_EXPIRE_MINUTES = 120   # 2 hours
   
-@app.get("/data")  
-def get_data(_: Annotated[bool, Depends(RoleChecker(allowed_roles=[Role.ADMIN]))]):   
+@router.get("/data")  
+def get_data(_: Annotated[bool, Depends(
+    RoleChecker(allowed_roles=[Role.ADMIN], action=Action.LOGIN))
+    ]):   
   return {"data": "This is important data"}   
   
-@app.post("/token")  
+@router.post("/token")  
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:  
     user = authenticate_user(form_data.username, form_data.password)  
     if not user:  
@@ -32,7 +37,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     set_refresh_token(refresh_token)
     return Token(access_token=access_token, refresh_token=refresh_token)  
   
-@app.post("/refresh")  
+@router.post("/refresh")  
 async def refresh_access_token(token_data: Annotated[tuple[User, str], Depends(validate_refresh_token)]):  
     user, token = token_data 
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)  
