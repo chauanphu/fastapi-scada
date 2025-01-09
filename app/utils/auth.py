@@ -2,7 +2,7 @@
 from typing import Annotated
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer   
-from passlib.context import CryptContext  
+from passlib.hash import bcrypt
 from jose import JWTError, jwt  
 from datetime import datetime, timedelta, timezone  
 from fastapi import Depends, HTTPException, status
@@ -10,24 +10,22 @@ from pydantic import ValidationError
 
 from .config import ALGORITHM, SECRET_KEY
 from models.auth import Role, User  
-from models.audit import Action, AuditLog
+from models.audit import Action
 from database.redis import check_refresh_token
 from crud.user import read_user_by_username
-from crud.audit import append_audit_log
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")  
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  
 
 def authenticate_user(username: str, password: str) -> User | bool:  
     user = read_user_by_username(username)
     if not user:  
         return False
-    if not pwd_context.verify(password, user.hashed_password):
+    if not bcrypt.verify(password, user.hashed_password):
         return False  
     return user
 
 def hash_password(password: str):
-    return pwd_context.hash(password)
+    return bcrypt.hash(password)
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):  
     credentials_exception = HTTPException(  
@@ -63,21 +61,14 @@ def create_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 class RoleChecker:  
-  def __init__(self, allowed_roles: list[Role], action: Action, resource: str):
+  def __init__(self, allowed_roles: list[Role], action: Action= None, resource: str = None, isLogged: bool = True):
     self.allowed_roles = allowed_roles  
     self.action = action
     self.resource = resource
-
+    self.isLogged = isLogged
 
   def __call__(self, user: Annotated[User, Depends(get_current_active_user)]):
     if user.role in self.allowed_roles:
-        append_audit_log(AuditLog(
-            username=user.username, 
-            action=self.action, 
-            resource=self.resource, 
-            timestamp=datetime.now(),
-            role=user.role.value
-            ), user.role)
         return user
     
     raise HTTPException(

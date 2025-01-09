@@ -1,6 +1,7 @@
 from pymongo import MongoClient, IndexModel
 from pymongo.collection import Collection
 from schema.user import UserSchema
+from schema.device import DeviceSchema
 from utils.config import MONGO_URI
 from utils.logging import logger
 
@@ -17,16 +18,16 @@ def create_collection(collection_name: str, schema: dict, indexes: list = []) ->
     if collection_name not in db.list_collection_names():
         try:
             db.create_collection(collection_name)
-            db.command({
-                "collMod": collection_name,
-                "validator": UserSchema,
-                "validationLevel": "strict",
-                "validationAction": "error"
-            })
+            if schema:
+                db.command({
+                    "collMod": collection_name,
+                    "validator": UserSchema,
+                    "validationLevel": "strict",
+                    "validationAction": "error"
+                })
             if indexes:
                 db[collection_name].create_indexes(indexes)
             logger.info(f"Created {collection_name} collection")
-        # If the collection already exists, it will raise an exception
         except Exception as e:
             logger.error(f"Error creating {collection_name} collection: {e}")
     return db[collection_name]
@@ -41,7 +42,7 @@ def create_time_collection(collection_name: str, indexes: list = []) -> Collecti
                     "metaField": "metadata",
                     "granularity": "seconds"
                 },
-                expireAfterSeconds=3600 * 24 * 365
+                expireAfterSeconds=3600 * 24 * 30 * 6 # 6 months
             )
             if indexes:
                 db[collection_name].create_indexes(indexes)
@@ -50,11 +51,28 @@ def create_time_collection(collection_name: str, indexes: list = []) -> Collecti
             logger.error(f"Error creating {collection_name} collection: {e}")
     return db[collection_name]
 
-user_collection = create_collection(
-    "users",
-    UserSchema, 
-    [
-        IndexModel("username", unique=True),
-        IndexModel("email", unique=True)
-    ])
+try:
+    user_collection = db["users"]
+    user_collection.create_index([("username", 1), ("email", 1)], unique=True)
+    db.command({
+        "collMod": "users",
+        "validator": UserSchema,
+        "validationLevel": "strict",
+        "validationAction": "error"
+    })
+except Exception as e:
+    logger.error(f"Error creating users collection: {e}")
+
+try:
+    device_collection = db["devices"]
+    device_collection.create_index([("mac", 1), ("name", 1)], unique=True)
+    db.command({
+        "collMod": "devices",
+        "validator": DeviceSchema,
+        "validationLevel": "strict",
+        "validationAction": "error"
+    })
+except Exception as e:
+    logger.error(f"Error creating devices collection: {e}")
+
 audit_collection = create_time_collection("audit", ["metadata.username", "timestamp"]) 

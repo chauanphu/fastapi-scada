@@ -20,6 +20,7 @@ class AuditLog(BaseModel):
     resource: str | None = None
     timestamp: datetime | None = None
     role: str | None = None
+    detail: str | None = None
     
     class Config:
         populate_by_name = True
