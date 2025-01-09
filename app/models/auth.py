@@ -8,15 +8,6 @@ class Role(Enum):
     ADMIN = "admin"
     MONITOR = "monitor"
     OPERATOR = "operator"
-    
-class Action(Enum):
-    LOGIN = "login"
-    READ = "read"
-    WRITE = "write"
-    DELETE = "delete"
-    UPDATE = "update"
-    COMMAND = "command"
-    MONITOR = "monitor"
 
 class User(BaseModel):
   id: Optional[ObjectId] | Optional[str] = Field(alias="_id", default=None)  

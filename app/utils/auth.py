@@ -1,5 +1,4 @@
 #auth.py  
-from enum import Enum
 from typing import Annotated
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer   
@@ -10,9 +9,11 @@ from fastapi import Depends, HTTPException, status
 from pydantic import ValidationError
 
 from .config import ALGORITHM, SECRET_KEY
-from models.auth import Action, Role, User  
+from models.auth import Role, User  
+from models.audit import Action, AuditLog
 from database.redis import check_refresh_token
 from crud.user import read_user_by_username
+from crud.audit import append_audit_log
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")  
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  
@@ -62,16 +63,23 @@ def create_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 class RoleChecker:  
-  def __init__(self, allowed_roles: list[Role], action: Action):
+  def __init__(self, allowed_roles: list[Role], action: Action, resource: str):
     self.allowed_roles = allowed_roles  
     self.action = action
+    self.resource = resource
 
-  def _audit_log(self, user: User, action: Action):
-    raise NotImplementedError
 
   def __call__(self, user: Annotated[User, Depends(get_current_active_user)]):
     if user.role in self.allowed_roles:
-      return True  
+        append_audit_log(AuditLog(
+            username=user.username, 
+            action=self.action, 
+            resource=self.resource, 
+            timestamp=datetime.now(),
+            role=user.role.value
+            ), user.role)
+        return True
+    
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="You don't have enough permissions"

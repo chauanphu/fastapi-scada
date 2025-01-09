@@ -25,8 +25,8 @@ def read_user_by_username(username: str) -> User | None:
     redis = get_redis_connection()
     if redis:
         user = redis.get(username)
-        user = json.loads(user)
         if user:
+            user = json.loads(user)
             user = User(**user)
             return user
     user = user_collection.find_one({"username": username})

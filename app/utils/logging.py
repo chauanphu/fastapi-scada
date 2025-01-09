@@ -28,5 +28,6 @@ logging.getLogger("pymongo.command").setLevel(logging.WARNING)  # Changed from N
 logging.getLogger("pymongo.serverSelection").setLevel(logging.WARNING)  # Changed from NOTSET to WARNING
 logging.getLogger("python_multipart.multipart").setLevel(logging.WARNING)  # Changed from NOTSET to WARNING
 logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)  # Changed from NOTSET to WARNING
+logging.getLogger("passlib.utils.compat").setLevel(logging.ERROR)  # Changed from NOTSET to WARNING
 
 logger = logging.getLogger(__name__)
