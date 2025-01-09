@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
   
 from crud.audit import append_audit_log
 from models.audit import AuditLog
-from utils.auth import Action, Role, RoleChecker, create_token, authenticate_user, validate_refresh_token  
+from utils.auth import Action, Role, RoleChecker, create_token, authenticate_user, validate_refresh_token
 # from data import fake_users_db, refresh_tokens  
 from models.auth import User, Token  
 from database.redis import set_refresh_token, remove_refresh_token
@@ -29,7 +29,7 @@ def get_data(_: Annotated[bool, Depends(
   
 @router.post("/token")  
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
-    user = authenticate_user(form_data.username, form_data.password)  
+    user = authenticate_user(form_data.username, form_data.password)
     if not user:  
         raise HTTPException(status_code=400, detail="Incorrect username or password")  
       

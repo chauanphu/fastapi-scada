@@ -1,9 +1,8 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, IndexModel
 from pymongo.collection import Collection
-from utils.logging import logger
 from schema.user import UserSchema
-from schema.audit import AuditSchema
 from utils.config import MONGO_URI
+from utils.logging import logger
 
 logger.info(f"Connecting to MongoDB: {MONGO_URI}")
 client = MongoClient(
@@ -17,7 +16,13 @@ db = client["scada_db"]
 def create_collection(collection_name: str, schema: dict, indexes: list = []) -> Collection:
     if collection_name not in db.list_collection_names():
         try:
-            db.create_collection(collection_name, validator=schema)
+            db.create_collection(collection_name)
+            db.command({
+                "collMod": collection_name,
+                "validator": UserSchema,
+                "validationLevel": "strict",
+                "validationAction": "error"
+            })
             if indexes:
                 db[collection_name].create_indexes(indexes)
             logger.info(f"Created {collection_name} collection")
@@ -45,5 +50,11 @@ def create_time_collection(collection_name: str, indexes: list = []) -> Collecti
             logger.error(f"Error creating {collection_name} collection: {e}")
     return db[collection_name]
 
-user_collection = create_collection("users", UserSchema, ["username"])
+user_collection = create_collection(
+    "users",
+    UserSchema, 
+    [
+        IndexModel("username", unique=True),
+        IndexModel("email", unique=True)
+    ])
 audit_collection = create_time_collection("audit", ["metadata.username", "timestamp"]) 

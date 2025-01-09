@@ -21,7 +21,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def authenticate_user(username: str, password: str) -> User | bool:  
     user = read_user_by_username(username)
     if not user:  
-        return False  
+        return False
     if not pwd_context.verify(password, user.hashed_password):
         return False  
     return user
@@ -78,7 +78,7 @@ class RoleChecker:
             timestamp=datetime.now(),
             role=user.role.value
             ), user.role)
-        return True
+        return user
     
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

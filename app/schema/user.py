@@ -1,4 +1,5 @@
 from models.auth import Role
+# Import Pymongo Validation Schema
 
 UserSchema = {
     "$jsonSchema": {
@@ -7,7 +8,8 @@ UserSchema = {
     "properties": {
         "username": {
             "bsonType": "string",
-            "description": "Username of the user"
+            "description": "Username of the user",
+            "uniqueItems": True
         },
         "hashed_password": {
             "bsonType": "string",
@@ -15,9 +17,10 @@ UserSchema = {
         },
         "email": {
             "bsonType": "string",
-            "description": "Email of the user"
+            "pattern": "^.+@.+\..+$",
+            "description": "Email of the user",
+            "uniqueItems": True
         },
-        
         "role": {
             "enum": [role.value for role in Role],
             "description": "Role of the user"

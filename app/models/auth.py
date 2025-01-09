@@ -10,12 +10,12 @@ class Role(Enum):
     OPERATOR = "operator"
 
 class User(BaseModel):
-  id: Optional[ObjectId] | Optional[str] = Field(alias="_id", default=None)  
-  username: str | None = None  
-  email: str | None = None  
-  role: Role | None = None  
-  disabled: bool| None = None  
-  hashed_password: str | None = None  
+  id: ObjectId | str = Field(alias="_id", default=None)  
+  username: str
+  email: str
+  role: Role
+  disabled: bool
+  hashed_password: str
 
   class Config:
     populate_by_name = True
