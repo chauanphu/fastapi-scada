@@ -1,9 +1,9 @@
 from pymongo import MongoClient
-from decouple import config
 from pymongo.collection import Collection
 from utils.logging import logger
+from schema.user import UserSchema
+from utils.config import MONGO_URI
 
-MONGO_URI = config("MONGO_URI")
 logger.info(f"Connecting to MongoDB: {MONGO_URI}")
 client = MongoClient(
     MONGO_URI,
@@ -13,4 +13,14 @@ client = MongoClient(
 logger.info("Connected to MongoDB")
 db = client["scada_db"]
 
-users_collection: Collection = db["users"]
+def create_collection(collection_name: str, schema: dict) -> Collection:
+    if collection_name not in db.list_collection_names():
+        try:
+            db.create_collection(collection_name, validator=schema)
+            logger.info(f"Created {collection_name} collection")
+        # If the collection already exists, it will raise an exception
+        except Exception as e:
+            logger.error(f"Error creating {collection_name} collection: {e}")
+    return db[collection_name]
+
+user_collection = create_collection("users", UserSchema)

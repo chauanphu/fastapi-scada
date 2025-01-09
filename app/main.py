@@ -4,11 +4,29 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from routers import api_router
 from database import mongo, redis
+from database.mongo import user_collection
+from utils.auth import hash_password
+from utils.config import SUPERADMIN_USERNAME, SUPERADMIN_PASSWORD, SUPERADMIN_EMAIL
+from utils.logging import logger
+
+from models.auth import Role
+
+def create_superadmin():
+    if user_collection.count_documents({}) == 0:
+        user_collection.insert_one({
+            "username": SUPERADMIN_USERNAME,
+            "hashed_password": hash_password(SUPERADMIN_PASSWORD),
+            "email": SUPERADMIN_EMAIL,
+            "role": Role.SUPERADMIN.value,
+            "disabled": False,
+        })
+        logger.info("Created superadmin user")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         redis.get_redis_connection()
+        create_superadmin()
         yield
     finally:
         mongo.client.close()

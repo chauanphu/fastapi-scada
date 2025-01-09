@@ -9,24 +9,24 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from pydantic import ValidationError
 
-from models.auth import User  
+from .config import ALGORITHM, SECRET_KEY
+from models.auth import Action, Role, User  
 from database.redis import check_refresh_token
-from utils.config import ALGORITHM, SECRET_KEY
+from crud.user import read_user_by_username
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")  
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")  
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")  
 
-def get_user(username: str):
-    raise NotImplementedError  
-    return None
-
 def authenticate_user(username: str, password: str) -> User | bool:  
-    user = get_user(username)  
+    user = read_user_by_username(username)
     if not user:  
         return False  
-    if not pwd_context.verify(password, user["password"]):  
+    if not pwd_context.verify(password, user.hashed_password):
         return False  
     return user
+
+def hash_password(password: str):
+    return pwd_context.hash(password)
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):  
     credentials_exception = HTTPException(  
@@ -41,7 +41,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
             raise credentials_exception  
     except JWTError:  
         raise credentials_exception  
-    user = get_user(username=username)  
+    user = read_user_by_username(username)
     if user is None:  
         raise credentials_exception  
     return user  
@@ -61,21 +61,6 @@ def create_token(data: dict, expires_delta: timedelta | None = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)  
     return encoded_jwt
 
-class Role(Enum):  
-    SUPERADMIN = "superadmin"
-    ADMIN = "admin"
-    MONITOR = "monitor"
-    OPERATOR = "operator"
-    
-class Action(Enum):
-    LOGIN = "login"
-    READ = "read"
-    WRITE = "write"
-    DELETE = "delete"
-    UPDATE = "update"
-    COMMAND = "command"
-    MONITOR = "monitor"
-
 class RoleChecker:  
   def __init__(self, allowed_roles: list[Role], action: Action):
     self.allowed_roles = allowed_roles  
@@ -84,8 +69,8 @@ class RoleChecker:
   def _audit_log(self, user: User, action: Action):
     raise NotImplementedError
 
-  def __call__(self, user: Annotated[User, Depends(get_current_active_user)]):  
-    if user.role in self.allowed_roles:  
+  def __call__(self, user: Annotated[User, Depends(get_current_active_user)]):
+    if user.role in self.allowed_roles:
       return True  
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -107,7 +92,7 @@ async def validate_refresh_token(token: Annotated[str, Depends(oauth2_scheme)]):
     except (JWTError, ValidationError):  
         raise credentials_exception  
   
-    user = get_user(username=username)  
+    user = read_user_by_username(username)
   
     if user is None:  
         raise credentials_exception  

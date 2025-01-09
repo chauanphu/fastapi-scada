@@ -22,5 +22,11 @@ logging.basicConfig(
 logging.getLogger("pymongo.topology").setLevel(logging.WARNING)
 logging.getLogger("asyncio").setLevel(logging.WARNING)
 logging.getLogger("watchfiles.main").setLevel(logging.WARNING)  # Changed from NOTSET to WARNING
+logging.getLogger("passlib.registry").setLevel(logging.WARNING) # Changed from NOTSET to WARNING
+logging.getLogger("pymongo.connection").setLevel(logging.WARNING)  # Changed from NOTSET to WARNING
+logging.getLogger("pymongo.command").setLevel(logging.WARNING)  # Changed from NOTSET to WARNING
+logging.getLogger("pymongo.serverSelection").setLevel(logging.WARNING)  # Changed from NOTSET to WARNING
+logging.getLogger("python_multipart.multipart").setLevel(logging.WARNING)  # Changed from NOTSET to WARNING
+logging.getLogger("passlib.handlers.bcrypt").setLevel(logging.ERROR)  # Changed from NOTSET to WARNING
 
 logger = logging.getLogger(__name__)
