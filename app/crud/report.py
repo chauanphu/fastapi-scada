@@ -1,12 +1,56 @@
-from database.mongo import sensor_collection
-from models.report import SensorModel, SensorDataBase
+from database.mongo import sensor_collection, device_collection
+from models.report import SensorDataResponse
 from datetime import datetime, timedelta
+from models.report import SensorDataResponse
+from database.redis import get_redis_connection
+import json
+import bson
+    
+def create_sensor_data(data: dict):
+    # Check if the device exists in the database
+    device_data: dict = mac2id(data["mac"])
+    if device_data is None:
+        return None
+    # Add the sensor data to device_data: power, voltage,...
+    device_data.update(data)
+    device_data: SensorDataResponse = SensorDataResponse(**device_data) # Enforce the model schema
+    sensor = sensor_collection.insert_one(device_data.model_dump())
+    redis = get_redis_connection()
+    if redis:
+        # Check if the device exists in the cache
+        redis.set(f"device:{data['mac']}", device_data.model_dump_json())
 
-def create_sensor_data(data: SensorDataBase) -> SensorModel:
-    sensor = sensor_collection.insert_one(data.model_dump())
-    return sensor_collection.find_one({"_id": sensor.inserted_id})
+    return sensor.inserted_id
 
-def agg_monthly(start_date: datetime = None, end_date: datetime = None):
+def mac2id(mac: str) -> str:
+    # Check if the device exists in the cache: device:mac -> id
+    redis = get_redis_connection()
+    if redis:
+        device = redis.get(f"device:{mac}")
+        if device:
+            device = json.loads(device)
+            return device
+    # Check if the device exists in the database
+    device = device_collection.find_one({"mac": mac})
+    if device:
+        # Convert ObjectId to string
+        device["device_id"] = str(device["_id"])
+        del device["_id"]
+        redis.set(f"device:{mac}", json.dumps(device))
+        return device
+    return None
+
+def get_cache_status() -> list[SensorDataResponse]:
+    redis = get_redis_connection()
+    if redis:
+        keys: list[str] = redis.keys("device:*")
+        if not keys:
+            return []
+        devices = redis.mget(keys)
+        return [SensorDataResponse(**json.loads(device)) for device in devices]
+    return None
+
+def agg_monthly(start_date: datetime = None, end_date: datetime = None, device_id: str = None):
     # Define the date range (last 6 months by default)
     if not end_date:
         end_date = datetime.utcnow()
@@ -16,7 +60,12 @@ def agg_monthly(start_date: datetime = None, end_date: datetime = None):
     # Aggregation pipeline
     pipeline = [
         # Match documents within the desired date range
-        {"$match": {"timestamp": {"$gte": start_date, "$lte": end_date}}},
+        {"$match": 
+            {
+                "timestamp": {"$gte": start_date, "$lte": end_date},
+                "_id": device_id
+            },
+        },
         # Group by year and month (extract year and month from the timestamp)
         {
             "$group": {
@@ -28,7 +77,9 @@ def agg_monthly(start_date: datetime = None, end_date: datetime = None):
             }
         },
         # Sort by year and month
-        {"$sort": {"_id.year": 1, "_id.month": 1}}
+        {"$sort": {"_id.year": 1, "_id.month": 1}},
+        # Project the result to timestamp and total_energy
+        {"$project": {"_id": 0, "timestamp": {"$dateFromParts": {"year": "$_id.year", "month": "$_id.month"}}, "total_energy": 1}}
     ]
 
     # Execute the query
@@ -49,12 +100,17 @@ def agg_daily(start_date: datetime = None, end_date: datetime = None):
         # Group by hour (using $dateToString to extract hour)
         {
             "$group": {
-                "_id": {"$dateToString": {"format": "%Y-%m-%dT%H:00:00Z", "date": "$timestamp"}},
+                "_id": {
+                    "year": {"$year": "$timestamp"},
+                    "month": {"$month": "$timestamp"},
+                    "day": {"$dayOfMonth": "$timestamp"}
+                },
                 "total_energy": {"$sum": "$total_energy"}
             }
         },
         # Sort by hour
-        {"$sort": {"_id": 1}}
+        {"$sort": {"_id": 1}},
+        {"$project": {"_id": 0, "timestamp": {"$dateFromParts": {"year": "$_id.year", "month": "$_id.month", "day": "$_id.day"}}, "total_energy": 1}}
     ]
 
     # Run the query
@@ -80,9 +136,23 @@ def agg_hourly(start_of_day: datetime = None, end_of_day: datetime = None):
             }
         },
         # Sort by hour
-        {"$sort": {"_id": 1}}
+        {"$sort": {"_id": 1}},
+        # Project the result to timestamp and total_energy
+        {"$project": {
+            "_id": 0,
+            "timestamp": {
+                "$dateFromParts": {
+                    "year": {"$year": "$$NOW"},
+                    "month": {"$month": "$$NOW"},
+                    "day": {"$dayOfMonth": "$$NOW"},
+                    "hour": "$_id"
+                }
+            },
+            "total_energy": 1
+        }}
     ]
 
     # Execute the query
     results = list(sensor_collection.aggregate(pipeline))
+    print(results)
     return results

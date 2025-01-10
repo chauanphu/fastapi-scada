@@ -10,6 +10,7 @@ from utils.config import SUPERADMIN_USERNAME, SUPERADMIN_PASSWORD, SUPERADMIN_EM
 from utils.logging import logger
 
 from models.auth import Role
+from routers.mqtt import client, Client
 
 def create_superadmin():
     if user_collection.count_documents({}) == 0:
@@ -27,9 +28,14 @@ async def lifespan(app: FastAPI):
     try:
         redis.get_redis_connection()
         create_superadmin()
+        # Start MQTT client
+        mqtt_client: Client = Client()
+        mqtt_client.connect()
+        mqtt_client.loop_start()
         yield
     finally:
         mongo.client.close()
+        mqtt_client.disconnect()
 
 app = FastAPI(
         title="SCADA Traffic Light System",

@@ -20,13 +20,17 @@ class SensorModel(BaseModel):
     power: float
     power_factor: float
     total_energy: float
-
+    hour_on: int
+    hour_off: int
+    minute_on: int
+    minute_off: int
+    
     class Config:
         populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}  # Ensures ObjectId is serialized to a string
 
-class SensorDataBase(BaseModel):
+class SensorDataResponse(BaseModel):
     timestamp: datetime
     voltage: float
     current: float
@@ -34,3 +38,13 @@ class SensorDataBase(BaseModel):
     power_factor: float
     total_energy: float
     mac: str
+    device_id: str
+
+class SensorDataResponse(SensorDataResponse):
+    hour_on: int
+    hour_off: int
+    minute_on: int
+    minute_off: int
+    
+    class Config:
+        from_attributes = True
