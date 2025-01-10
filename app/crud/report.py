@@ -4,8 +4,10 @@ from datetime import datetime, timedelta
 from models.report import SensorDataResponse
 from database.redis import get_redis_connection
 import json
-import bson
-    
+import pytz
+
+local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
+
 def create_sensor_data(data: dict):
     # Check if the device exists in the database
     device_data: dict = mac2id(data["mac"])
@@ -53,9 +55,12 @@ def get_cache_status() -> list[SensorDataResponse]:
 def agg_monthly(start_date: datetime = None, end_date: datetime = None, device_id: str = None):
     # Define the date range (last 6 months by default)
     if not end_date:
-        end_date = datetime.utcnow()
+        end_date = datetime.now(pytz.UTC).astimezone(local_tz)
     if not start_date:
         start_date = end_date - timedelta(days=6 * 30)  # Approximation of 6 months
+
+    end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999)
+    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Aggregation pipeline
     pipeline = [
@@ -63,7 +68,7 @@ def agg_monthly(start_date: datetime = None, end_date: datetime = None, device_i
         {"$match": 
             {
                 "timestamp": {"$gte": start_date, "$lte": end_date},
-                "_id": device_id
+                "device_id": device_id
             },
         },
         # Group by year and month (extract year and month from the timestamp)
@@ -86,17 +91,19 @@ def agg_monthly(start_date: datetime = None, end_date: datetime = None, device_i
     results = list(sensor_collection.aggregate(pipeline))
     return results
 
-def agg_daily(start_date: datetime = None, end_date: datetime = None):
+def agg_daily(start_date: datetime = None, end_date: datetime = None, device_id: str = None):
     # Define the date range (last 30 days by default)
     if not end_date:
-        end_date = datetime.utcnow()
+        end_date = datetime.now(pytz.UTC).astimezone(local_tz).replace(hour=23, minute=59, second=59, microsecond=999999)
     if not start_date:
         start_date = end_date - timedelta(days=30)
+    end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
     # Aggregation pipeline
     pipeline = [
         # Match documents within the desired day
-        {"$match": {"timestamp": {"$gte": start_date, "$lte": end_date}}},
+        {"$match": {"timestamp": {"$gte": start_date, "$lte": end_date}, "device_id": device_id}},
         # Group by hour (using $dateToString to extract hour)
         {
             "$group": {
@@ -117,17 +124,18 @@ def agg_daily(start_date: datetime = None, end_date: datetime = None):
     results = list(sensor_collection.aggregate(pipeline))
     return results
 
-def agg_hourly(start_of_day: datetime = None, end_of_day: datetime = None):
+def agg_hourly(start_of_day: datetime = None, end_of_day: datetime = None, device_id: str = None):
     # Define the date range (24 hours by default)
     if not end_of_day:
-        end_of_day = datetime.utcnow().replace(hour=23, minute=59, second=59, microsecond=999)
+        end_of_day = datetime.now(pytz.UTC).astimezone(local_tz)
     if not start_of_day:
         start_of_day = end_of_day - timedelta(days=1)
-
+    end_of_day = end_of_day.replace(hour=23, minute=59, second=59, microsecond=999999)
+    start_of_day = start_of_day.replace(hour=0, minute=0, second=0, microsecond=0)
     # Aggregation pipeline
     pipeline = [
         # Match documents within the desired day
-        {"$match": {"timestamp": {"$gte": start_of_day, "$lte": end_of_day}}},
+        {"$match": {"timestamp": {"$gte": start_of_day, "$lte": end_of_day}, "device_id": device_id}},
         # Group by hour (extract hour from the timestamp)
         {
             "$group": {
@@ -154,5 +162,4 @@ def agg_hourly(start_of_day: datetime = None, end_of_day: datetime = None):
 
     # Execute the query
     results = list(sensor_collection.aggregate(pipeline))
-    print(results)
     return results

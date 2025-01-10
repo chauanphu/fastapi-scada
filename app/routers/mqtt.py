@@ -6,20 +6,19 @@ import random
 from datetime import datetime
 import json
 from paho.mqtt import client as mqtt_client
-from models.report import SensorDataResponse
 from crud.report import create_sensor_data
 from utils.logging import logger
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
-def get_tz_datetime(timestamp: int | None = None) -> datetime:
+def get_tz_datetime(timestamp: int | None = None) -> int:
     if not timestamp:
         # Get current time
-        return datetime.now(pytz.UTC)
+        return datetime.now(pytz.UTC).astimezone(local_tz)
     else:   
         utc_dt = datetime.fromtimestamp(timestamp, pytz.UTC)
-        time = utc_dt.replace(tzinfo=pytz.FixedOffset(420)) # UTC+7
-        return time
+        time = utc_dt.replace(tzinfo=pytz.FixedOffset(0)) # UTC+7
+        return time.astimezone(local_tz)
     
 class Client(mqtt_client.Client):
     def __init__(self):
@@ -38,7 +37,7 @@ class Client(mqtt_client.Client):
         # Validate and parse data
         try:
             # Parse int "time" to datetime object "timestamp"
-            payload["timestamp"] = get_tz_datetime(payload["time"]).timestamp()
+            payload["timestamp"] = get_tz_datetime(payload["time"])
             payload.pop("time")
             payload["mac"] = mac
             payload["total_energy"] = (payload["power"] / 1000 / 720) * payload["power_factor"]
