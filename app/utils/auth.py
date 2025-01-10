@@ -97,3 +97,24 @@ async def validate_refresh_token(token: Annotated[str, Depends(oauth2_scheme)]):
         raise credentials_exception  
   
     return user, token  
+
+# Token validation for websocket connections
+async def validate_ws_token(token: str):
+    credentials_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")  
+    try:
+        if token is None:  
+            raise credentials_exception
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])  
+        username: str = payload.get("sub")  
+        role: str = payload.get("role")  
+        if username is None or role is None:  
+            raise credentials_exception  
+    except (JWTError, ValidationError):  
+        raise credentials_exception  
+  
+    user = read_user_by_username(username)
+  
+    if user is None:  
+        raise credentials_exception  
+  
+    return user, token

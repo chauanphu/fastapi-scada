@@ -10,7 +10,7 @@ from utils.config import SUPERADMIN_USERNAME, SUPERADMIN_PASSWORD, SUPERADMIN_EM
 from utils.logging import logger
 
 from models.auth import Role
-from routers.mqtt import client, Client
+from routers.mqtt import Client
 
 def create_superadmin():
     if user_collection.count_documents({}) == 0:

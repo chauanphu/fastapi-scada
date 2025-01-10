@@ -1,14 +1,15 @@
 # Websocket endpoint for real-time monitoring
 
 
+from contextlib import asynccontextmanager
 from typing import List
-from fastapi import WebSocket
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import asyncio
 from models.report import SensorDataResponse
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket
 from crud.report import get_cache_status
-
-router = APIRouter()
+from utils.auth import validate_ws_token
+from utils.logging import logger
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -24,7 +25,8 @@ class ConnectionManager:
 
     async def disconnect(self, websocket: WebSocket):
         async with self.lock:
-            self.active_connections.remove(websocket)
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
         print("Connection removed")
 
     async def broadcast(self, message: str):
@@ -49,18 +51,54 @@ class ConnectionManager:
             if not data:
                 await asyncio.sleep(5)
                 continue
-            data = get_cache_status()
+            data: list[SensorDataResponse] = get_cache_status()
+            # Convert data to JSON string
+            data = [d.model_dump_json() for d in data]
             await self.broadcast(data)
             await asyncio.sleep(5)
 
     # Start a new thread to broadcast data
     def loop(self):
         asyncio.create_task(self.broadcast_data())
-        print("Broadcasting task started.")
+        logger.info("Broadcasting data started")
 
 manager = ConnectionManager()
 
-@router.websocket("/")
+@asynccontextmanager
+async def get_manager(app: FastAPI):
+    try:
+        manager.loop()
+        yield
+    finally:
+        print("Manager closed.")
+
+router = APIRouter(
+    prefix="/ws",
+    tags=["websocket"],
+    lifespan=get_manager
+)
+
+@router.get("/")
+async def read_root():
+    return {"message": "Hello World"}
+
+@router.websocket("/monitor/")
+async def websocket_endpoint(websocket: WebSocket):
+    try:
+        token = websocket.query_params.get("token")
+        user = await validate_ws_token(token)
+        if not user:
+            await websocket.close(code=1008)
+        await manager.connect(websocket)
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await manager.disconnect(websocket)
+    except Exception as e:
+        print(f"Error: {e}")
+        await manager.disconnect(websocket)
+
+@router.websocket("/notification/")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
@@ -69,5 +107,5 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         await manager.disconnect(websocket)
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error: {e}")
         await manager.disconnect(websocket)
