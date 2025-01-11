@@ -1,5 +1,5 @@
 from database.mongo import sensor_collection, device_collection
-from models.report import SensorModel
+from models.report import SensorModel, SensorFull
 from datetime import datetime, timedelta
 from database.redis import get_redis_connection
 import json
@@ -13,9 +13,10 @@ def create_sensor_data(data: dict):
     if device_data is None:
         return None
     # Add the sensor data to device_data: power, voltage,...
+    sensor_data = SensorModel(**data)
     device_data.update(data)
-    device_data: SensorModel = SensorModel(**device_data) # Enforce the model schema
-    sensor = sensor_collection.insert_one(device_data.model_dump())
+    device_data: SensorFull = SensorFull(**device_data) # Enforce the model schema
+    sensor = sensor_collection.insert_one(sensor_data.model_dump())
     redis = get_redis_connection()
     if redis:
         # Check if the device exists in the cache
@@ -40,14 +41,14 @@ def mac2device(mac: str) -> dict:
         return device
     return None
 
-def get_cache_status() -> list[SensorModel]:
+def get_cache_status() -> list[SensorFull]:
     redis = get_redis_connection()
     if redis:
         keys: list[str] = redis.keys("device:*")
         if not keys:
             return []
         devices = redis.mget(keys)
-        return [SensorModel(**json.loads(device)) for device in devices]
+        return [SensorFull(**json.loads(device)) for device in devices]
     return None
 
 def agg_monthly(start_date: datetime = None, end_date: datetime = None, device_id: str = None):

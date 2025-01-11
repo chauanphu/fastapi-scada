@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import asyncio
-from models.report import SensorModel
+from models.report import SensorFull, SensorModel
 from fastapi import APIRouter, WebSocket
 from crud.report import get_cache_status
 from utils.auth import validate_ws_token
@@ -47,11 +47,11 @@ class ConnectionManager:
             if not connections:
                 await asyncio.sleep(5)
                 continue
-            data: list[SensorModel] = get_cache_status()
+            data: list[SensorFull] = get_cache_status()
             if not data:
                 await asyncio.sleep(5)
                 continue
-            data: list[SensorModel] = get_cache_status()
+            data: list[SensorFull] = get_cache_status()
             # Convert data to JSON string
             data = [d.model_dump_json() for d in data]
             await self.broadcast(data)
