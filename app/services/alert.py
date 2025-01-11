@@ -1,11 +1,20 @@
-from models.report import SensorModel
+"""
+## Alert Service
+This service is responsible for checking the status of the device and generating alerts based on the status.
+"""
+
+from models.report import SensorFull
 from models.alert import AlertModel, DeviceState, AlertSeverity
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
+from database.mongo import alert_collection
+from database.redis import get_redis_connection
+from utils.logging import logger
+
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
 class Alert:
-    def __init__(self, sensor_data: SensorModel = None):
+    def __init__(self, sensor_data: SensorFull = None):
         self.sensor_data = sensor_data
         self.VOLTAGE_WORKING_MIN = 220
         self.VOLTAGE_MAXTHRESHOLD = 240
@@ -17,12 +26,17 @@ class Alert:
     
     def in_working_hours(self):
         # Assume hour_on (18) > hour_off (5). Working in night time
-        current_hour = self.current_time.hour
-        current_minute = self.current_time.minute
-        is_passed_hour_on = current_hour >= self.sensor_data.hour_on and current_hour <= 23 and (current_minute >= self.sensor_data.minute_on)
-        is_yet_hour_off = current_hour <= self.sensor_data.hour_off and current_minute < self.sensor_data.minute_off
 
-        return is_passed_hour_on or is_yet_hour_off
+        time_off = datetime(
+            self.current_time.year, self.current_time.month, self.current_time.day, self.sensor_data.hour_off, self.sensor_data.minute_off,
+            tzinfo=local_tz)
+        # Time off is in the next day
+        if self.sensor_data.hour_off < self.sensor_data.hour_on:
+            time_off += timedelta(days=1)
+        time_on = datetime(self.current_time.year, self.current_time.month, self.current_time.day, self.sensor_data.hour_on, self.sensor_data.minute_on,
+                           tzinfo=local_tz)
+        
+        return time_on <= self.current_time <= time_off
 
     def check_status(self) -> tuple[DeviceState, AlertSeverity]:
         if self.sensor_data:
@@ -53,3 +67,33 @@ class Alert:
                 return DeviceState.OFF_OUT_OF_HOUR, AlertSeverity.WARNING
         else: 
             return DeviceState.DiSCONNECTED, AlertSeverity.CRITICAL
+        
+def get_cached_alert(device_id: str) -> str:
+    redis = get_redis_connection()
+    cached_alert = redis.get("state:" + device_id) # Get UTF-8 string
+    return cached_alert.decode("utf-8") if cached_alert else ""
+
+def process_data(data: SensorFull):
+    try:
+        alert = Alert(data)
+        state, severity = alert.check_status()
+        print(f"Device {data.device_id} is {state.value} with severity {severity.value}")
+        # if state == DeviceState.WORKING:
+        #     return
+        current_state = get_cached_alert(data.device_id)
+        # If the current state is not the same as the new state, update the alert
+        if current_state != state.name or not current_state:
+            new_alert = AlertModel(
+                state=state,
+                device=data.device_id,
+                device_name=data.device_name,
+                timestamp=alert.current_time,
+                severity=severity
+            )
+            alert_collection.insert_one(new_alert.model_dump())
+            # Cache the new state
+            redis = get_redis_connection()
+            redis.set("state:" + data.device_id, state.name)
+    except Exception as e:
+        logger.error(f"Failed to process alert data: {e}")
+        return

@@ -23,6 +23,7 @@ class SensorModel(BaseModel):
 
 class SensorFull(SensorModel):
     device_id: str
+    device_name: str
     toggle: bool
     auto: bool
     hour_on: int
@@ -30,7 +31,6 @@ class SensorFull(SensorModel):
     minute_on: int
     minute_off: int
     auto: bool
-    device_id: str
 
     class Config:
         populate_by_name = True

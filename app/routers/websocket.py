@@ -66,7 +66,7 @@ manager = ConnectionManager()
 notification = ConnectionManager()
 
 @asynccontextmanager
-async def get_manager(app: FastAPI):
+async def get_manager(_: FastAPI):
     try:
         manager.loop()
         yield

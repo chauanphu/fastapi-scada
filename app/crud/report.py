@@ -2,6 +2,7 @@ from database.mongo import sensor_collection, device_collection
 from models.report import SensorModel, SensorFull
 from datetime import datetime, timedelta
 from database.redis import get_redis_connection
+from services.alert import process_data
 import json
 import pytz
 
@@ -9,14 +10,19 @@ local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
 def create_sensor_data(data: dict):
     # Check if the device exists in the database
-    device_data: dict = mac2device(data["mac"])
-    if device_data is None:
+    cached_data = mac2device(data["mac"])
+    if cached_data is None:
         return None
     # Add the sensor data to device_data: power, voltage,...
     sensor_data = SensorModel(**data)
-    device_data.update(data)
-    device_data: SensorFull = SensorFull(**device_data) # Enforce the model schema
+    cached_data.update(data)
+    device_data: SensorFull = SensorFull(**cached_data) # Enforce the model schema
     sensor = sensor_collection.insert_one(sensor_data.model_dump())
+
+    # Process the data for alerting
+    process_data(device_data)
+
+    # Update the device data in the cache
     redis = get_redis_connection()
     if redis:
         # Check if the device exists in the cache
@@ -37,7 +43,9 @@ def mac2device(mac: str) -> dict:
     if device:
         # Convert ObjectId to string
         device["device_id"] = str(device["_id"])
+        device["device_name"] = device["name"]
         del device["_id"]
+        del device["name"]
         return device
     return None
 

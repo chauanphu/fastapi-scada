@@ -17,7 +17,7 @@ def get_tz_datetime(timestamp: int | None = None) -> int:
         return datetime.now(pytz.UTC).astimezone(local_tz)
     else:   
         utc_dt = datetime.fromtimestamp(timestamp, pytz.UTC)
-        time = utc_dt.replace(tzinfo=pytz.FixedOffset(0)) # UTC+7
+        time = utc_dt.replace(tzinfo=pytz.FixedOffset(420)) # UTC+7
         return time.astimezone(local_tz)
     
 class Client(mqtt_client.Client):
@@ -46,8 +46,7 @@ class Client(mqtt_client.Client):
 
         except Exception as e:
             logger.error(f"Failed to parse data from {mac}: {e}")
-            return
-        
+            return 
 
     def handle_connection(self, unit_id: int, payload):
         pass

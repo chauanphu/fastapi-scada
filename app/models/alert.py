@@ -43,21 +43,16 @@ class DeviceState(str, Enum):
     OFF_OUT_OF_HOUR = "Thiết bị tắt ngoài giờ"
 
 class AlertModel(BaseModel):
-    id: Optional[PyObjectId] = Field(alias="_id", default=None)
     state: DeviceState
-    title: str
     device: str
-    state_time: datetime
-    end_time: Optional[datetime]
-    resolved_time: Optional[datetime]
-    resolved_by: Optional[str]
+    device_name: str
+    timestamp: datetime
+    resolved_time: Optional[datetime] | None = None
+    resolved_by: Optional[str] | None = None
     severity: AlertSeverity
 
     class Config:
         populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}  # Ensures ObjectId is serialized to a string
-
-class AlertModelCreate(AlertModel):
-    device: PyObjectId = Field(alias="device_id", default=None)
     
