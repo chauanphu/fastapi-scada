@@ -1,9 +1,10 @@
-from pymongo import MongoClient, IndexModel
+from pymongo import MongoClient
 from pymongo.collection import Collection
 from schema.user import UserSchema
 from schema.device import DeviceSchema
 from utils.config import MONGO_URI
 from utils.logging import logger
+from pymongo.operations import IndexModel
 
 logger.info(f"Connecting to MongoDB: {MONGO_URI}")
 client = MongoClient(
@@ -52,7 +53,7 @@ def create_time_collection(collection_name: str, indexes: list = []) -> Collecti
     return db[collection_name]
 
 try:
-    user_collection = db["users"]
+    user_collection: Collection = db["users"]
     user_collection.create_index([("username", 1), ("email", 1)], unique=True)
     db.command({
         "collMod": "users",
@@ -75,6 +76,14 @@ try:
 except Exception as e:
     logger.error(f"Error creating devices collection: {e}")
 
-audit_collection = create_time_collection("audit", [("metadata.username",1), ("timestamp",1)]) 
+audit_collection = create_time_collection("audit", [
+    IndexModel([("metadata.username", 1), ("timestamp", 1)], name="username_timestamp_idx")
+])
 
-sensor_collection = create_time_collection("sensors", [("metadata.mac",1), ("timestamp",1)])
+sensor_collection = create_time_collection("sensors", [
+    IndexModel([("metadata.mac", 1), ("timestamp", 1)], name="mac_timestamp_idx")
+])
+
+alert_collection = create_time_collection("alerts", [
+    IndexModel([("metadata.device_id", 1), ("timestamp", 1)], name="mac_timestamp_idx")
+])

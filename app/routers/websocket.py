@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from typing import List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import asyncio
-from models.report import SensorDataResponse
+from models.report import SensorModel
 from fastapi import APIRouter, WebSocket
 from crud.report import get_cache_status
 from utils.auth import validate_ws_token
@@ -47,11 +47,11 @@ class ConnectionManager:
             if not connections:
                 await asyncio.sleep(5)
                 continue
-            data: list[SensorDataResponse] = get_cache_status()
+            data: list[SensorModel] = get_cache_status()
             if not data:
                 await asyncio.sleep(5)
                 continue
-            data: list[SensorDataResponse] = get_cache_status()
+            data: list[SensorModel] = get_cache_status()
             # Convert data to JSON string
             data = [d.model_dump_json() for d in data]
             await self.broadcast(data)
@@ -63,6 +63,7 @@ class ConnectionManager:
         logger.info("Broadcasting data started")
 
 manager = ConnectionManager()
+notification = ConnectionManager()
 
 @asynccontextmanager
 async def get_manager(app: FastAPI):
@@ -87,8 +88,6 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         token = websocket.query_params.get("token")
         user = await validate_ws_token(token)
-        if not user:
-            await websocket.close(code=1008)
         await manager.connect(websocket)
         while True:
             await websocket.receive_text()
@@ -98,14 +97,16 @@ async def websocket_endpoint(websocket: WebSocket):
         print(f"Error: {e}")
         await manager.disconnect(websocket)
 
-@router.websocket("/notification/")
+@router.websocket("/noti/")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
     try:
+        token = websocket.query_params.get("token")
+        user = await validate_ws_token(token)
+        await notification.connect(websocket)
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        await manager.disconnect(websocket)
+        await notification.disconnect(websocket)
     except Exception as e:
         logger.error(f"Error: {e}")
-        await manager.disconnect(websocket)
+        await notification.disconnect(websocket)

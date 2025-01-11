@@ -1,7 +1,6 @@
 from database.mongo import sensor_collection, device_collection
-from models.report import SensorDataResponse
+from models.report import SensorModel
 from datetime import datetime, timedelta
-from models.report import SensorDataResponse
 from database.redis import get_redis_connection
 import json
 import pytz
@@ -10,12 +9,12 @@ local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
 def create_sensor_data(data: dict):
     # Check if the device exists in the database
-    device_data: dict = mac2id(data["mac"])
+    device_data: dict = mac2device(data["mac"])
     if device_data is None:
         return None
     # Add the sensor data to device_data: power, voltage,...
     device_data.update(data)
-    device_data: SensorDataResponse = SensorDataResponse(**device_data) # Enforce the model schema
+    device_data: SensorModel = SensorModel(**device_data) # Enforce the model schema
     sensor = sensor_collection.insert_one(device_data.model_dump())
     redis = get_redis_connection()
     if redis:
@@ -24,7 +23,7 @@ def create_sensor_data(data: dict):
 
     return sensor.inserted_id
 
-def mac2id(mac: str) -> str:
+def mac2device(mac: str) -> dict:
     # Check if the device exists in the cache: device:mac -> id
     redis = get_redis_connection()
     if redis:
@@ -38,18 +37,17 @@ def mac2id(mac: str) -> str:
         # Convert ObjectId to string
         device["device_id"] = str(device["_id"])
         del device["_id"]
-        redis.set(f"device:{mac}", json.dumps(device))
         return device
     return None
 
-def get_cache_status() -> list[SensorDataResponse]:
+def get_cache_status() -> list[SensorModel]:
     redis = get_redis_connection()
     if redis:
         keys: list[str] = redis.keys("device:*")
         if not keys:
             return []
         devices = redis.mget(keys)
-        return [SensorDataResponse(**json.loads(device)) for device in devices]
+        return [SensorModel(**json.loads(device)) for device in devices]
     return None
 
 def agg_monthly(start_date: datetime = None, end_date: datetime = None, device_id: str = None):
