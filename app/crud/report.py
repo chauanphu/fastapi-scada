@@ -14,8 +14,8 @@ def create_sensor_data(data: dict):
     if cached_data is None:
         return None
     # Add the sensor data to device_data: power, voltage,...
-    sensor_data = SensorModel(**data)
     cached_data.update(data)
+    sensor_data = SensorModel(**cached_data)
     device_data: SensorFull = SensorFull(**cached_data) # Enforce the model schema
     sensor = sensor_collection.insert_one(sensor_data.model_dump())
 

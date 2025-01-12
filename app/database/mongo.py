@@ -36,7 +36,7 @@ def create_collection(collection_name: str, schema: dict = None, indexes: IndexM
             logger.error(f"Error creating devices collection: {e}")
     return db[collection_name]
 
-def create_time_collection(collection_name: str, schema: str = None, indexes: list = []) -> Collection:
+def create_time_collection(collection_name: str, indexes: list = []) -> Collection:
     if collection_name not in db.list_collection_names():
         try:
             db.create_collection(
@@ -50,13 +50,6 @@ def create_time_collection(collection_name: str, schema: str = None, indexes: li
             )
             if indexes:
                 db[collection_name].create_indexes(indexes)
-            if schema:
-                db.command({
-                    "collMod": collection_name,
-                    "validator": schema,
-                    "validationLevel": "strict",
-                    "validationAction": "error"
-                })
             logger.info(f"Created {collection_name} collection")
         except Exception as e:
             logger.error(f"Error creating {collection_name} collection: {e}")
@@ -88,11 +81,11 @@ except Exception as e:
 
 firmware_collection: Collection = create_collection("firmware")
 
-audit_collection = create_time_collection("audit", schema=AuditSchema, indexes=[
+audit_collection = create_time_collection("audit", indexes=[
     IndexModel([("metadata.username", 1), ("timestamp", 1)], name="username_timestamp_idx")
 ])
 
-sensor_collection = create_time_collection("sensors", schema=SensorSchema, indexes=[
+sensor_collection = create_time_collection("sensors", indexes=[
     IndexModel([("metadata.mac", 1), ("timestamp", 1)], name="mac_timestamp_idx")
 ])
 

@@ -13,6 +13,7 @@ class EnergyReportResponse(BaseModel):
 
 class SensorModel(BaseModel):
     mac: str
+    device_id: str
     timestamp: datetime
     voltage: float
     current: float
@@ -22,7 +23,6 @@ class SensorModel(BaseModel):
     toggle: bool
 
 class SensorFull(SensorModel):
-    device_id: str
     device_name: str
     toggle: bool
     auto: bool
