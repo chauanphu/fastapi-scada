@@ -2,6 +2,7 @@
 
 
 from contextlib import asynccontextmanager
+import threading
 from typing import List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import asyncio
@@ -10,6 +11,7 @@ from fastapi import APIRouter, WebSocket
 from crud.report import get_cache_status
 from utils.auth import validate_ws_token
 from utils.logging import logger
+from database.redis import subscribe
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -69,6 +71,9 @@ notification = ConnectionManager()
 async def get_manager(_: FastAPI):
     try:
         manager.loop()
+        # Subscribe to the "notification" channel
+        asyncio.create_task(subscribe("alert", notification.broadcast))
+        logger.info("Started Redis subscription to 'alert' channel")
         yield
     finally:
         print("Manager closed.")

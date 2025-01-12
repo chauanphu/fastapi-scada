@@ -73,6 +73,10 @@ def get_cached_alert(device_id: str) -> str:
     cached_alert = redis.get("state:" + device_id) # Get UTF-8 string
     return cached_alert.decode("utf-8") if cached_alert else ""
 
+def send_alert(alert: AlertModel):
+    redis = get_redis_connection()
+    redis.publish("alert", alert.model_dump_json())
+
 def process_data(data: SensorFull):
     try:
         alert = Alert(data)
@@ -94,6 +98,8 @@ def process_data(data: SensorFull):
             # Cache the new state
             redis = get_redis_connection()
             redis.set("state:" + data.device_id, state.name)
+            send_alert(new_alert)
+
     except Exception as e:
         logger.error(f"Failed to process alert data: {e}")
         return
