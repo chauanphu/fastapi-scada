@@ -90,9 +90,8 @@ def process_data(data: SensorFull):
     try:
         alert = Alert(data)
         state, severity = alert.check_status()
-        print(f"Device {data.device_id} is {state.value} with severity {severity.value}")
-        # if state == DeviceState.WORKING:
-        #     return
+        if severity == AlertSeverity.NORMAL:
+            return
         current_state = get_cached_alert(data.device_id)
         # If the current state is not the same as the new state, update the alert
         if current_state != state.name or not current_state:
