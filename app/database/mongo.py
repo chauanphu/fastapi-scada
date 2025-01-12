@@ -1,7 +1,8 @@
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from schema.user import UserSchema
-from schema.device import DeviceSchema
+from schema.device import DeviceSchema, SensorSchema
+from schema.audit import AuditSchema
 from utils.config import MONGO_URI
 from utils.logging import logger
 from pymongo.operations import IndexModel
@@ -33,20 +34,27 @@ def create_collection(collection_name: str, schema: dict, indexes: list = []) ->
             logger.error(f"Error creating {collection_name} collection: {e}")
     return db[collection_name]
 
-def create_time_collection(collection_name: str, indexes: list = []) -> Collection:
+def create_time_collection(collection_name: str, schema: str = None, indexes: list = []) -> Collection:
     if collection_name not in db.list_collection_names():
         try:
             db.create_collection(
                 collection_name,
                 timeseries={
-                    "timeField": "timestamp", 
-                    "metaField": "metadata",
+                    "timeField": "timestamp", # Required
+                    "metaField": "metadata", # Metafield for storing metadata
                     "granularity": "seconds"
                 },
                 expireAfterSeconds=3600 * 24 * 30 * 6 # 6 months
             )
             if indexes:
                 db[collection_name].create_indexes(indexes)
+            if schema:
+                db.command({
+                    "collMod": collection_name,
+                    "validator": schema,
+                    "validationLevel": "strict",
+                    "validationAction": "error"
+                })
             logger.info(f"Created {collection_name} collection")
         except Exception as e:
             logger.error(f"Error creating {collection_name} collection: {e}")
@@ -76,14 +84,14 @@ try:
 except Exception as e:
     logger.error(f"Error creating devices collection: {e}")
 
-audit_collection = create_time_collection("audit", [
+audit_collection = create_time_collection("audit", schema=AuditSchema, indexes=[
     IndexModel([("metadata.username", 1), ("timestamp", 1)], name="username_timestamp_idx")
 ])
 
-sensor_collection = create_time_collection("sensors", [
+sensor_collection = create_time_collection("sensors", schema=SensorSchema, indexes=[
     IndexModel([("metadata.mac", 1), ("timestamp", 1)], name="mac_timestamp_idx")
 ])
 
-alert_collection = create_time_collection("alerts", [
+alert_collection = create_time_collection("alerts", indexes=[
     IndexModel([("metadata.device_id", 1), ("timestamp", 1)], name="mac_timestamp_idx")
 ])

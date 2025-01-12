@@ -41,3 +41,44 @@ DeviceSchema = {
     }
     }
 }
+
+SensorSchema = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["name", "mac", "voltage", "current", "power", "power_factor", "total_energy", "toggle"],
+        "properties": {
+            "name": {
+                "bsonType": "string",
+                "description": "Device name",
+            },
+            "mac": {
+                "bsonType": "string",
+                "description": "MAC address of the device",
+            },
+            "voltage": {
+                "bsonType": "float",
+                "description": "Voltage"
+            },
+            "current": {
+                "bsonType": "float",
+                "description": "Current"
+            },
+            "power": {
+                "bsonType": "float",
+                "description": "Power"
+            },
+            "power_factor": {
+                "bsonType": "float",
+                "description": "Power factor"
+            },
+            "total_energy": {
+                "bsonType": "float",
+                "description": "Total energy"
+            },
+            "toggle": {
+                "bsonType": "bool",
+                "description": "Toggle the device"
+            }
+        }
+    }
+}

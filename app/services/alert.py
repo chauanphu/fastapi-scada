@@ -16,13 +16,11 @@ local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 class Alert:
     def __init__(self, sensor_data: SensorFull = None):
         self.sensor_data = sensor_data
-        self.VOLTAGE_WORKING_MIN = 220
-        self.VOLTAGE_MAXTHRESHOLD = 240
-        self.VOLTAGE_MINTHRESHOLD = 40
+        self.POWER_MINTHRESHOLD = 40
         self.current_time = datetime.now(pytz.UTC).astimezone(local_tz)
 
-    def check_voltage(self):
-        return self.sensor_data.voltage >= self.VOLTAGE_MINTHRESHOLD
+    def check_power(self):
+        return self.sensor_data.power >= self.POWER_MINTHRESHOLD
     
     def in_working_hours(self):
         # Assume hour_on (18) > hour_off (5). Working in night time
@@ -40,7 +38,7 @@ class Alert:
 
     def check_status(self) -> tuple[DeviceState, AlertSeverity]:
         if self.sensor_data:
-            working = self.check_voltage()
+            working = self.check_power()
             on_working_hours = self.in_working_hours()
             toggle = self.sensor_data.toggle
             auto = self.sensor_data.auto
@@ -50,13 +48,14 @@ class Alert:
                 return DeviceState.WORKING, AlertSeverity.NORMAL
             ## Device is off manually or automatically when out of working hours
             elif (not working and not toggle) and (not auto or (auto and not on_working_hours)):
-                return DeviceState.POWER_LOST, AlertSeverity.NORMAL
+                return DeviceState.OFF, AlertSeverity.NORMAL
             # Critical conditions
             ## Devie is lost power
             elif not working and toggle:
                 return DeviceState.POWER_LOST, AlertSeverity.CRITICAL
             ## Device is still on despite switching down
             elif working and not toggle:
+                print(f"working: {working}, toggle: {toggle}")
                 return DeviceState.WORKING, AlertSeverity.CRITICAL
             # Warning conditions
             ## Device is on out of working hours
@@ -76,6 +75,16 @@ def get_cached_alert(device_id: str) -> str:
 def send_alert(alert: AlertModel):
     redis = get_redis_connection()
     redis.publish("alert", alert.model_dump_json())
+
+def increase_alert_count(device_id: str):
+    redis = get_redis_connection()
+    response = redis.incr("alert_count:" + device_id)
+    print(f"Alert count for device {device_id} is {response}")
+    redis.publish("alert", f"{device_id}:{response}")
+
+def reset_alert_count(device_id: str):
+    redis = get_redis_connection()
+    redis.set("alert_count:" + device_id, 0)
 
 def process_data(data: SensorFull):
     try:
@@ -98,7 +107,7 @@ def process_data(data: SensorFull):
             # Cache the new state
             redis = get_redis_connection()
             redis.set("state:" + data.device_id, state.name)
-            send_alert(new_alert)
+            increase_alert_count(data.device_id)
 
     except Exception as e:
         logger.error(f"Failed to process alert data: {e}")
