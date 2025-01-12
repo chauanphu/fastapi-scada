@@ -86,7 +86,7 @@ audit_collection = create_time_collection("audit", indexes=[
 ])
 
 sensor_collection = create_time_collection("sensors", indexes=[
-    IndexModel([("metadata.mac", 1), ("timestamp", 1)], name="mac_timestamp_idx")
+    IndexModel([("metadata.device_id", 1), ("metadata.mac", 1), ("timestamp", 1)], name="mac_timestamp_idx")
 ])
 
 alert_collection = create_time_collection("alerts", indexes=[

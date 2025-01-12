@@ -17,14 +17,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day in minutes
 POWERLOST_THRESHOLD = 50 # 50W
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-class PermissionEnum(Enum):
-    MONITOR_SYSTEM = 'GIÁM SÁT HỆ THỐNG'
-    CONTROL_DEVICE = 'ĐIỀU KHIỂN THIẾT BỊ'
-    REPORT = 'BÁO CÁO'
-    MANAGE_USER = 'QUẢN LÝ USER'
-    CONFIG_DEVICE = 'CẤU HÌNH THIẾT BỊ'
-    VIEW_CHANGE_LOG = 'XEM NHẬT KÝ THAY ĐỔI'
-
 # MQTT setup
 MQTT_BROKER = config("MQTT_BROKER")
 MQTT_PORT = int(config("MQTT_PORT"))
