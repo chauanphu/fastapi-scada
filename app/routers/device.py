@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 # from crud.user import read_users, create_user, update_user, delete_user
 from crud.audit import append_audit_log
-from crud.device import create_device, read_device_by_mac, read_devices, configure_device, delete_device, update_device
+from crud.device import create_device, read_devices, configure_device, delete_device, update_device
 from utils.auth import Role, RoleChecker
 from models.audit import Action, AuditLog
-from models.device import Device, DeviceCreate, DeviceConfigure, DeviceEdit
+from models.device import Device, DeviceCreate, DeviceConfigure, DeviceEdit, Schedule
 from models.auth import User
+from services.mqtt import client
 
 router = APIRouter(
     prefix="/devices",
@@ -18,7 +19,7 @@ router = APIRouter(
 @router.get("/", response_model=list[Device])
 def get_devices(current_user: Annotated[
     User, Depends(
-    RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN]))
+    RoleChecker(allowed_roles="*"))
     ]):
     results = read_devices()
     log = AuditLog(
@@ -64,43 +65,65 @@ def put_device(current_user: Annotated[
             username=current_user.username,
             action=Action.UPDATE,
             resource="thiết bị",
-            detail=f"Cập nhật thông tin thiết bị {result.name}"
+            detail=f"Cập nhật thông tin thiết bị {result["name"]}"
         ), role=current_user.role)
 
         return status.HTTP_200_OK
     raise HTTPException(status_code=400, detail="Failed to update device")
 
-@router.patch("/command/{device_id}")
-def command(current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN], isLogged=False))],
+@router.put("/toggle/{device_id}")
+def toggle(current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN, Role.OPERATOR], isLogged=False))],
             device_id: str, 
-            command: DeviceConfigure):
+            value: bool):
+    command = DeviceConfigure(toggle=value)
     result = configure_device(device_id, command)
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to toggle device")
+    client.toggle_device(result["mac"], value)
     template_log = AuditLog(
         username=current_user.username,
         action=Action.COMMAND,
         resource="thiết bị",
-        detail=f""
+        detail=f"{"Bật" if value else "Tắt"} thiết bị {result["name"]}"
     )
+    append_audit_log(template_log, role=current_user.role)
+    return status.HTTP_200_OK
 
-    if result:
-        # Convert dict to object
-        result = Device(**result)
-        if command.hour_on and command.minute_on:
-            template_log.detail = f"Bật thiết bị {result.name} lúc {command.hour_on}:{command.minute_on}"
-            template_log.detail = f"Tắt thiết bị {result.name} lúc {command.hour_off}:{command.minute_off}"
-            append_audit_log(template_log, role=current_user.role)
-        if command.hour_off and command.minute_off:
-            template_log.detail = f"Tắt thiết bị {result.name} lúc {command.hour_off}:{command.minute_off}"
-            append_audit_log(template_log, role=current_user.role)
-        if command.auto:
-            template_log.detail = f"{"Mở" if command.auto else "Tắt"} chế độ tự động cho thiết bị {result.name}"
-            append_audit_log(template_log, role=current_user.role) 
-        if command.toggle:
-            template_log.detail = f"{"Mở" if command.toggle else "Tắt"} thiết bị {result.name}"
-            append_audit_log(template_log, role=current_user.role)
-    
-        return status.HTTP_200_OK
-    raise HTTPException(status_code=400, detail="Failed to configure device")
+@router.put("/auto/{device_id}")
+def auto(current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN, Role.OPERATOR], isLogged=False))],
+            device_id: str, 
+            value: bool):
+    command = DeviceConfigure(auto=value)
+    result = configure_device(device_id, command)
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to toggle device")
+    client.set_auto(result["mac"], value)
+    template_log = AuditLog(
+        username=current_user.username,
+        action=Action.COMMAND,
+        resource="thiết bị",
+        detail=f"{"Bật" if value else "Tắt"} chế độ tự động cho thiết bị {result["name"]}"
+    )
+    append_audit_log(template_log, role=current_user.role)
+    return status.HTTP_200_OK
+
+@router.put("/schedule/{device_id}")
+def schedule(current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN, Role.OPERATOR], isLogged=False))],
+            device_id: str, 
+            value: Schedule):
+    command = DeviceConfigure(**value.model_dump())
+    result = configure_device(device_id, command)
+    if not result:
+        raise HTTPException(status_code=400, detail="Failed to toggle device")
+    client.set_schedule(result["mac"], value)
+    template_log = AuditLog(
+        username=current_user.username,
+        action=Action.COMMAND,
+        resource="thiết bị",
+        detail=f"Đặt lịch cho thiết bị {result["name"]}"
+    )
+    append_audit_log(template_log, role=current_user.role)
+    return status.HTTP_200_OK
 
 @router.delete("/{device_id}")
 def delete(_: Annotated[

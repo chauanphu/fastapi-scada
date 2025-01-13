@@ -29,6 +29,12 @@ class DeviceCreate(BaseModel):
     auto: bool = False
     toggle: bool = False
 
+class Schedule(BaseModel):
+    hour_on: int
+    hour_off: int
+    minute_on: int
+    minute_off: int
+
 class DeviceConfigure(BaseModel):
     hour_on: int | None = None
     hour_off: int | None = None

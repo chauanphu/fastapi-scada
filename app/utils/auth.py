@@ -61,16 +61,17 @@ def create_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 class RoleChecker:  
-  def __init__(self, allowed_roles: list[Role], action: Action= None, resource: str = None, isLogged: bool = True):
+  def __init__(self, allowed_roles: list[Role] | str, action: Action= None, resource: str = None, isLogged: bool = True):
     self.allowed_roles = allowed_roles  
     self.action = action
     self.resource = resource
     self.isLogged = isLogged
 
   def __call__(self, user: Annotated[User, Depends(get_current_active_user)]):
-    if user.role in self.allowed_roles:
+    if self.allowed_roles == "*":
         return user
-    
+    elif user.role in self.allowed_roles:
+        return user
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="You don't have enough permissions"

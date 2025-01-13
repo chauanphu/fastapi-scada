@@ -1,8 +1,7 @@
 from pymongo import MongoClient
 from pymongo.collection import Collection
 from schema.user import UserSchema
-from schema.device import DeviceSchema, SensorSchema
-from schema.audit import AuditSchema
+from schema.device import DeviceSchema
 from utils.config import MONGO_URI
 from utils.logging import logger
 from pymongo.operations import IndexModel

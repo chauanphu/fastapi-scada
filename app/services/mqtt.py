@@ -1,5 +1,6 @@
 import pytz
-from utils.config import MQTT_BROKER, MQTT_PORT
+from models.device import Schedule
+from utils.config import MQTT_BROKER, MQTT_PORT, DEBUG
 import re
 import json
 import random
@@ -50,6 +51,42 @@ class Client(mqtt_client.Client):
 
     def handle_connection(self, unit_id: int, payload):
         pass
+
+    def toggle_device(self, mac, state: bool):
+        topic = f"unit/{mac}/command"
+        body = {
+            "command": "TOGGLE",
+            "payload": "on" if state else "off"
+        }
+        if DEBUG:
+            print("Topic", topic)
+            print("Body", body)
+        else:
+            self.publish(topic, json.dumps(body))
+
+    def set_auto(self, mac, state: bool):
+        topic = f"unit/{mac}/command"
+        body = {
+            "command": "AUTO",
+            "payload": "on" if state else "off"
+        }
+        if DEBUG:
+            print("Topic", topic)
+            print("Body", body)
+        else:
+            self.publish(topic, json.dumps(body))
+
+    def set_schedule(self, mac, schedule: Schedule):
+        topic = f"unit/{mac}/command"
+        body = {
+            "command": "SCHEDULE",
+            "payload": schedule.model_dump()
+        }
+        if DEBUG:
+            print("Topic", topic)
+            print("Body", body)
+        else:
+            self.publish(topic, json.dumps(body))
 
     ## Override
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
