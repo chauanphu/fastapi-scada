@@ -9,7 +9,7 @@ from fastapi import Depends, HTTPException, status
 from pydantic import ValidationError
 
 from .config import ALGORITHM, SECRET_KEY
-from models.auth import Role, TokenData, User  
+from models.auth import Role, User  
 from models.audit import Action
 from database.redis import check_refresh_token
 from crud.user import read_user_by_username
@@ -42,13 +42,11 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])  
         username: str = payload.get("sub")  
         tenant_id: str = payload.get("tenant_id")
-        roles: list[str] = payload.get("roles", [])
-        if username is None or tenant_id is None:
+        if username is None:
             raise credentials_exception
-        token_data = TokenData(username=username, tenant_id=tenant_id, roles=roles) 
     except JWTError:  
         raise credentials_exception  
-    user = read_user_by_username(username)
+    user = read_user_by_username(username, tenant_id)
     if user is None:  
         raise credentials_exception  
     return user  

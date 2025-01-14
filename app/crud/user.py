@@ -4,7 +4,7 @@ import bson
 from database.mongo import user_collection
 from database.redis import get_redis_connection
 from models.user import AccountEdit, User as Account, AccountCreate
-from models.auth import User
+from models.auth import User, Role
 import utils.auth as auth
 from utils.logging import logger
 
@@ -43,7 +43,7 @@ def read_user(user_id: str) -> dict:
         redis.set(user_id, user, ex=3600)
     return user
 
-def read_user_by_username(username: str) -> User | None:
+def read_user_by_username(username: str, tenant_id: str | None = None, superadminOnly: bool = False) -> User | None:
     redis = get_redis_connection()
     if redis:
         user = redis.get(username)
@@ -51,7 +51,14 @@ def read_user_by_username(username: str) -> User | None:
             user = json.loads(user)
             user = User(**user)
             return user
-    user = user_collection.find_one({"username": username})
+    if tenant_id:
+        user = user_collection.find_one({"username": username, "tenant_id": tenant_id})
+    elif superadminOnly:
+        # Only find superadmin
+        user = user_collection.find_one({"username": username, "role": Role.SUPERADMIN.value})
+    else:
+        user = user_collection.find_one({"username": username})
+        
     if user:
         user = User(**user)
         user_data = user.model_dump_json()
