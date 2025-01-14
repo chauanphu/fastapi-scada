@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 from bson import ObjectId
 from pydantic import BaseModel, Field  
 
@@ -8,9 +9,15 @@ class Role(Enum):
     MONITOR = "monitor"
     OPERATOR = "operator"
 
+class TokenData(BaseModel):
+    username: str
+    tenant_id: str
+    roles: list[str]
+
 class User(BaseModel):
   id: ObjectId | str = Field(alias="_id", default=None)  
   username: str
+  tenant_id: Optional[str] = None
   email: str
   role: Role
   disabled: bool

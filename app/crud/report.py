@@ -1,4 +1,4 @@
-from database.mongo import sensor_collection, device_collection
+from database.mongo import device_collection, get_sensors_collection
 from models.report import SensorModel, SensorFull
 from datetime import datetime, timedelta
 from database.redis import get_redis_connection
@@ -8,19 +8,23 @@ import pytz
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
-def create_sensor_data(data: dict):
+def create_sensor_data(data: dict) -> str:
     # Check if the device exists in the database
     cached_data = mac2device(data["mac"])
     if cached_data is None:
         return None
     # Add the sensor data to device_data: power, voltage,...
+    tenant_id = cached_data["tenant_id"]
+    del cached_data["tenant_id"]
     cached_data.update(data)
     sensor_data = SensorModel(**cached_data)
     device_data: SensorFull = SensorFull(**cached_data) # Enforce the model schema
+    # Insert the sensor data to the database
+    sensor_collection = get_sensors_collection(tenant_id)
     sensor = sensor_collection.insert_one(sensor_data.model_dump())
 
     # Process the data for alerting
-    process_data(device_data)
+    process_data(device_data, tenant_id)
 
     # Update the device data in the cache
     redis = get_redis_connection()
@@ -59,7 +63,7 @@ def get_cache_status() -> list[SensorFull]:
         return [SensorFull(**json.loads(device)) for device in devices]
     return None
 
-def agg_monthly(start_date: datetime = None, end_date: datetime = None, device_id: str = None):
+def agg_monthly(device_id: str, tenant_id: str, start_date: datetime = None, end_date: datetime = None):
     # Define the date range (last 6 months by default)
     if not end_date:
         end_date = datetime.now(pytz.UTC).astimezone(local_tz)
@@ -95,10 +99,11 @@ def agg_monthly(start_date: datetime = None, end_date: datetime = None, device_i
     ]
 
     # Execute the query
+    sensor_collection = get_sensors_collection(tenant_id)
     results = list(sensor_collection.aggregate(pipeline))
     return results
 
-def agg_daily(start_date: datetime = None, end_date: datetime = None, device_id: str = None):
+def agg_daily(device_id: str, tenant_id: str, start_date: datetime = None, end_date: datetime = None):
     # Define the date range (last 30 days by default)
     if not end_date:
         end_date = datetime.now(pytz.UTC).astimezone(local_tz).replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -126,12 +131,12 @@ def agg_daily(start_date: datetime = None, end_date: datetime = None, device_id:
         {"$sort": {"_id": 1}},
         {"$project": {"_id": 0, "timestamp": {"$dateFromParts": {"year": "$_id.year", "month": "$_id.month", "day": "$_id.day"}}, "total_energy": 1}}
     ]
-
+    sensor_collection = get_sensors_collection(tenant_id)
     # Run the query
     results = list(sensor_collection.aggregate(pipeline))
     return results
 
-def agg_hourly(start_of_day: datetime = None, end_of_day: datetime = None, device_id: str = None):
+def agg_hourly(device_id: str, tenant_id: str, start_date: datetime = None, end_date: datetime = None):
     # Define the date range (24 hours by default)
     if not end_of_day:
         end_of_day = datetime.now(pytz.UTC).astimezone(local_tz)
@@ -166,7 +171,7 @@ def agg_hourly(start_of_day: datetime = None, end_of_day: datetime = None, devic
             "total_energy": 1
         }}
     ]
-
+    sensor_collection = get_sensors_collection(tenant_id)
     # Execute the query
     results = list(sensor_collection.aggregate(pipeline))
     return results

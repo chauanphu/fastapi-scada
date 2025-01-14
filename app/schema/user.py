@@ -11,6 +11,10 @@ UserSchema = {
             "description": "Username of the user",
             "uniqueItems": True
         },
+        "tenant_id": {
+            "bsonType": "string",
+            "description": "Tenant ID"
+        },
         "hashed_password": {
             "bsonType": "string",
             "description": "Hashed password of the user"

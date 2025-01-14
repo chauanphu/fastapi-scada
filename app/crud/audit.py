@@ -1,22 +1,24 @@
 # APPEND AND READ AUDIT LOGS
 from datetime import datetime, timedelta
-from database.mongo import audit_collection
+from database.mongo import get_audit_collection
 from models.audit import AuditLog
 from models.auth import Role
 from utils.logging import logger
 
-def append_audit_log(audit: AuditLog, role: Role = None) -> None:
+def append_audit_log(audit: AuditLog, role: Role = None, tenant_id: str = None):
     if not role is None:
         if role == Role.SUPERADMIN:
             return
     try:
         new_audit = audit.model_dump()
         new_audit.pop("id", None)
+        audit_collection = get_audit_collection(tenant_id)
         audit_collection.insert_one(new_audit)
     except Exception as e:
         logger.error(f"Error appending audit log: {e}")
 
 def read_audit_logs(
+    tenant_id: str,
     username: str = None,
     action: str = None,
     resource: str = None,
@@ -43,6 +45,7 @@ def read_audit_logs(
             
         # Exclude role == SUPERADMIN
         query["role"] = {"$ne": Role.SUPERADMIN.value}
+        audit_collection = get_audit_collection(tenant_id)
         return [AuditLog(**audit) for audit in audit_collection.find(query)]
     except Exception as e:
         logger.error(f"Error reading audit logs: {e}")

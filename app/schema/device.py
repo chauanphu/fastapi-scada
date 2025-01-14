@@ -2,7 +2,7 @@
 DeviceSchema = {
     "$jsonSchema": {
     "bsonType": "object",
-    "required": ["name", "mac", "hour_on", "hour_off", "minute_on", "minute_off", "toggle", "auto"],
+    "required": ["name", "mac", "hour_on", "hour_off", "minute_on", "minute_off", "toggle", "auto", "tenant_id"],
     "properties": {
         "name": {
             "bsonType": "string",
@@ -13,6 +13,10 @@ DeviceSchema = {
             "bsonType": "string",
             "description": "MAC address of the device",
             "uniqueItems": True
+        },
+        "tenant_id": {
+            "bsonType": "string",
+            "description": "Tenant ID"
         },
         "hour_on": {
             "bsonType": "int",

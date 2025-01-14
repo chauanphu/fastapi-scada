@@ -7,7 +7,7 @@ from models.report import SensorFull
 from models.alert import AlertModel, DeviceState, AlertSeverity
 from datetime import datetime, timedelta
 import pytz
-from database.mongo import alert_collection
+from database.mongo import get_alerts_collection
 from database.redis import get_redis_connection
 from utils.logging import logger
 
@@ -72,10 +72,6 @@ def get_cached_alert(device_id: str) -> str:
     cached_alert = redis.get("state:" + device_id) # Get UTF-8 string
     return cached_alert.decode("utf-8") if cached_alert else ""
 
-def send_alert(alert: AlertModel):
-    redis = get_redis_connection()
-    redis.publish("alert", alert.model_dump_json())
-
 def increase_alert_count(device_id: str):
     redis = get_redis_connection()
     response = redis.incr("alert_count:" + device_id)
@@ -86,7 +82,7 @@ def reset_alert_count(device_id: str):
     redis = get_redis_connection()
     redis.set("alert_count:" + device_id, 0)
 
-def process_data(data: SensorFull):
+def process_data(data: SensorFull, tenant_id: str):
     try:
         alert = Alert(data)
         state, severity = alert.check_status()
@@ -102,6 +98,7 @@ def process_data(data: SensorFull):
                 timestamp=alert.current_time,
                 severity=severity
             )
+            alert_collection = get_alerts_collection(tenant_id)
             alert_collection.insert_one(new_alert.model_dump())
             # Cache the new state
             redis = get_redis_connection()
