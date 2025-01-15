@@ -1,21 +1,32 @@
+from fastapi import HTTPException
 from database.mongo import device_collection, get_sensors_collection
+from models.auth import Role, User
+from models.device import Device
 from models.report import SensorModel, SensorFull
 from datetime import datetime, timedelta
 from database.redis import get_redis_connection
 from services.alert import process_data
 import json
 import pytz
+from crud.device import read_device
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
+
+def cache_unknown_device(mac: str) -> None:
+    redis = get_redis_connection()
+    # Store as member of the set unknown_devices with expiration of 1 day
+    redis.sadd("unknown_devices", mac)
+    redis.expire("unknown_devices", 86400)
 
 def create_sensor_data(data: dict) -> str:
     # Check if the device exists in the database
     cached_data = mac2device(data["mac"])
     if cached_data is None:
+        # Cache the unknown device
+        cache_unknown_device(data["mac"])
         return None
     # Add the sensor data to device_data: power, voltage,...
     tenant_id = cached_data["tenant_id"]
-    del cached_data["tenant_id"]
     cached_data.update(data)
     sensor_data = SensorModel(**cached_data)
     device_data: SensorFull = SensorFull(**cached_data) # Enforce the model schema
@@ -63,7 +74,17 @@ def get_cache_status() -> list[SensorFull]:
         return [SensorFull(**json.loads(device)) for device in devices]
     return None
 
-def agg_monthly(device_id: str, tenant_id: str, start_date: datetime = None, end_date: datetime = None):
+def verify_owner(current_user: User, device_id: str) -> dict:
+    # Check if the device exists in the database
+    device = read_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if current_user.role == Role.SUPERADMIN or device["tenant_id"] == current_user.tenant_id:
+        return device
+    raise HTTPException(status_code=401, detail="Device does not belong to the tenant")
+
+def agg_monthly(current_user: User, device_id: str, start_date: datetime = None, end_date: datetime = None):
+    device: Device = verify_owner(current_user, device_id)
     # Define the date range (last 6 months by default)
     if not end_date:
         end_date = datetime.now(pytz.UTC).astimezone(local_tz)
@@ -97,13 +118,12 @@ def agg_monthly(device_id: str, tenant_id: str, start_date: datetime = None, end
         # Project the result to timestamp and total_energy
         {"$project": {"_id": 0, "timestamp": {"$dateFromParts": {"year": "$_id.year", "month": "$_id.month"}}, "total_energy": 1}}
     ]
-
-    # Execute the query
-    sensor_collection = get_sensors_collection(tenant_id)
+    sensor_collection = get_sensors_collection(device.tenant_id)
     results = list(sensor_collection.aggregate(pipeline))
     return results
 
-def agg_daily(device_id: str, tenant_id: str, start_date: datetime = None, end_date: datetime = None):
+def agg_daily(current_user: User, device_id: str, start_date: datetime = None, end_date: datetime = None):
+    device: Device = verify_owner(current_user, device_id)
     # Define the date range (last 30 days by default)
     if not end_date:
         end_date = datetime.now(pytz.UTC).astimezone(local_tz).replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -131,23 +151,24 @@ def agg_daily(device_id: str, tenant_id: str, start_date: datetime = None, end_d
         {"$sort": {"_id": 1}},
         {"$project": {"_id": 0, "timestamp": {"$dateFromParts": {"year": "$_id.year", "month": "$_id.month", "day": "$_id.day"}}, "total_energy": 1}}
     ]
-    sensor_collection = get_sensors_collection(tenant_id)
+    sensor_collection = get_sensors_collection(device.tenant_id)
     # Run the query
     results = list(sensor_collection.aggregate(pipeline))
     return results
 
-def agg_hourly(device_id: str, tenant_id: str, start_date: datetime = None, end_date: datetime = None):
+def agg_hourly(current_user: User, device_id: str, start_date: datetime = None, end_date: datetime = None):
+    device: Device = verify_owner(current_user, device_id)
     # Define the date range (24 hours by default)
-    if not end_of_day:
-        end_of_day = datetime.now(pytz.UTC).astimezone(local_tz)
-    if not start_of_day:
-        start_of_day = end_of_day - timedelta(days=1)
-    end_of_day = end_of_day.replace(hour=23, minute=59, second=59, microsecond=999999)
-    start_of_day = start_of_day.replace(hour=0, minute=0, second=0, microsecond=0)
+    if not end_date:
+        end_date = datetime.now(pytz.UTC).astimezone(local_tz)
+    if not start_date:
+        start_date = end_date - timedelta(days=1)
+    end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
     # Aggregation pipeline
     pipeline = [
         # Match documents within the desired day
-        {"$match": {"timestamp": {"$gte": start_of_day, "$lte": end_of_day}, "device_id": device_id}},
+        {"$match": {"timestamp": {"$gte": start_date, "$lte": end_date}, "device_id": device_id}},
         # Group by hour (extract hour from the timestamp)
         {
             "$group": {
@@ -171,7 +192,8 @@ def agg_hourly(device_id: str, tenant_id: str, start_date: datetime = None, end_
             "total_energy": 1
         }}
     ]
-    sensor_collection = get_sensors_collection(tenant_id)
+    sensor_collection = get_sensors_collection(device.tenant_id)
+
     # Execute the query
     results = list(sensor_collection.aggregate(pipeline))
     return results

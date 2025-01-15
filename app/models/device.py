@@ -13,7 +13,8 @@ class Device(BaseModel):
   minute_off: int | None = None
   auto: bool | None = None
   toggle: bool | None = None
-
+  tenant_id: str | None = None
+  
   class Config:
     populate_by_name = True
     arbitrary_types_allowed = True
@@ -28,6 +29,7 @@ class DeviceCreate(BaseModel):
     minute_off: int
     auto: bool = False
     toggle: bool = False
+    tenant_id: str
 
 class Schedule(BaseModel):
     hour_on: int

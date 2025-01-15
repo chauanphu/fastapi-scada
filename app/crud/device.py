@@ -1,40 +1,33 @@
 import json
 
 import bson
+from fastapi import HTTPException
 from database.mongo import device_collection
 from database.redis import get_redis_connection
+from models.auth import User
 from models.device import DeviceCreate, DeviceConfigure, Device, DeviceEdit
-from utils.logging import logger
+import bson
 
 def create_device(device: DeviceCreate) -> Device:
-    try:
-        new_device = device_collection.insert_one(device.model_dump())
-        device = Device(
-            _id=new_device.inserted_id,
-            name=device.name,
-            mac=device.mac,
-            hour_on=device.hour_on,
-            hour_off=device.hour_off,
-            minute_on=device.minute_on,
-            minute_off=device.minute_off,
-            auto=device.auto,
-            toggle=device.toggle
-        )
-        return device
-    except Exception as e:
-        logger.error(f"Error creating device: {e}")
-        return None
+    new_device = device_collection.insert_one(device.model_dump())
+    device = Device(
+        _id=new_device.inserted_id,
+        **device.model_dump()
+    )
+    return device
 
-def read_device(device_id: str) -> dict:
+def read_device(device_id: str) -> Device | None:
     redis = get_redis_connection()
     if redis:
-        device = redis.get(device_id)
-        if device:
-            return device
-    device = device_collection.find_one({"_id": device_id})
+        mac: bytes = redis.get("id_mac:" + device_id)
+        if mac:
+            return read_device_by_mac(mac.decode())
+
+    device = device_collection.find_one({"_id": bson.ObjectId(device_id)})
     if device:
-        redis.set(device_id, device, ex=3600)
-    return device
+        redis.set("id_mac:" + device_id, device["mac"], ex=3600)
+        return Device(**device)
+    return None
 
 def read_device_by_mac(mac: str) -> Device | None:
     redis = get_redis_connection()
@@ -51,25 +44,30 @@ def read_device_by_mac(mac: str) -> Device | None:
         return device
     return None
 
-def read_devices() -> list[Device]:
-    devices = list(device_collection.find())
+def read_devices(tenant_id: str = "") -> list[Device]:
+    if tenant_id:
+        devices = list(device_collection.find({"tenant_id": tenant_id}))
+    else:
+        devices = list(device_collection.find())
     if not devices:
         return []
     return [Device(**device) for device in devices]
 
-def configure_device(device_id: str, device: DeviceConfigure) -> Device:
-    try:
-        # Convert _id to ObjectId
-        device_id = bson.ObjectId(device_id)
-        device_data = device.model_dump(exclude_unset=True)
-        updated = device_collection.find_one_and_update(
-            {"_id": device_id},
-            {"$set": device_data},
-            return_document=True
-        )
-    except Exception as e:
-        logger.error(f"Error command device: {e}")
-        return False
+def configure_device(current_user: User, device_id: str, device: DeviceConfigure) -> Device:
+    # Check if the device belongs to the tenant
+    device = read_device(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if device["tenant_id"] != current_user.tenant_id and current_user.role != "SUPERADMIN":
+        raise HTTPException(status_code=401, detail="Device does not belong to the tenant")
+    # Convert _id to ObjectId
+    device_id = bson.ObjectId(device_id)
+    device_data = device.model_dump(exclude_unset=True)
+    updated = device_collection.find_one_and_update(
+        {"_id": device_id},
+        {"$set": device_data},
+        return_document=True
+    )
     return updated
 
 def update_device(device_id: str, device: DeviceEdit) -> Device:

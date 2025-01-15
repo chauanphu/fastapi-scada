@@ -31,7 +31,8 @@ class SensorFull(SensorModel):
     minute_on: int
     minute_off: int
     auto: bool
-
+    tenant_id: str
+    
     class Config:
         populate_by_name = True
         arbitrary_types_allowed = True
