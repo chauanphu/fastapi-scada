@@ -9,25 +9,17 @@ import utils.auth as auth
 from utils.logging import logger
 
 def create_user(user: AccountCreate) -> Account:
-    try:
-        new_user = user_collection.insert_one({
-            "username": user.username,
-            "hashed_password": auth.hash_password(user.password),
-            "email": user.email,
-            "role": user.role.value,
-            "disabled": user.disabled
-        })
-        user = Account(
-            _id=new_user.inserted_id,
-            username=user.username,
-            email=user.email,
-            role=user.role,
-            disabled=user.disabled
-        )
-        return user
-    except Exception as e:
-        logger.error(f"Error creating user: {e}")
-        return None
+    data = user.model_dump()
+    data["hashed_password"] = auth.hash_password(user.password)
+    new_user = user_collection.insert_one(data)
+    user = Account(
+        _id=new_user.inserted_id,
+        username=user.username,
+        email=user.email,
+        role=user.role.value,
+        disabled=user.disabled,
+    )
+    return user
 
 def read_user(user_id: str) -> dict:
     # Check if the user exists in the Redis cache
@@ -43,7 +35,7 @@ def read_user(user_id: str) -> dict:
         redis.set(user_id, user, ex=3600)
     return user
 
-def read_user_by_username(username: str, tenant_id: str | None = None, superadminOnly: bool = False) -> User | None:
+def read_user_by_username(username: str, tenant_id: str | None = None, superAdmin: bool = False) -> User | None:
     redis = get_redis_connection()
     if redis:
         user = redis.get(username)
@@ -53,7 +45,7 @@ def read_user_by_username(username: str, tenant_id: str | None = None, superadmi
             return user
     if tenant_id:
         user = user_collection.find_one({"username": username, "tenant_id": tenant_id})
-    elif superadminOnly:
+    elif superAdmin:
         # Only find superadmin
         user = user_collection.find_one({"username": username, "role": Role.SUPERADMIN.value})
     else:
@@ -66,8 +58,11 @@ def read_user_by_username(username: str, tenant_id: str | None = None, superadmi
         return user
     return None
 
-def read_users() -> list[Account]:
-    users = list(user_collection.find())
+def read_users(tenant_id: str = "") -> list[Account]:
+    if tenant_id != "":
+        users = list(user_collection.find({"tenant_id": tenant_id}))
+    else:
+        users = list(user_collection.find())
     if not users:
         return []
     return [Account(**user) for user in users]

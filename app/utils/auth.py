@@ -16,11 +16,6 @@ from crud.user import read_user_by_username
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")  
 
-async def get_tenant_id(x_tenant_id: str = Header(...)):
-    if not x_tenant_id:
-        raise HTTPException(status_code=400, detail="X-Tenant-ID header missing")
-    return x_tenant_id
-
 def authenticate_user(username: str, password: str) -> User | bool:  
     user = read_user_by_username(username)
     if not user:  
@@ -46,7 +41,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
             raise credentials_exception
     except JWTError:  
         raise credentials_exception  
-    user = read_user_by_username(username, tenant_id)
+    user = read_user_by_username(username, tenant_id, superAdmin=True)
     if user is None:  
         raise credentials_exception  
     return user  

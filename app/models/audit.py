@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Optional
 from bson import ObjectId
 from pydantic import BaseModel, Field
+from utils import get_real_time
 
 class Action(Enum):
     LOGIN = "đăng nhập"
@@ -15,12 +16,12 @@ class Action(Enum):
 
 class AuditLog(BaseModel):
     id: Optional[ObjectId] | Optional[str] = Field(alias="_id", default=None)  
-    username: str | None = None
-    action: str | None = None
-    resource: str | None = None
-    timestamp: datetime | None = None
-    role: str | None = None
-    detail: str | None = None
+    username: str
+    action: str
+    resource: str
+    timestamp: datetime = get_real_time()
+    role: str
+    detail: str
     
     class Config:
         populate_by_name = True

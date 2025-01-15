@@ -1,9 +1,10 @@
-from database.mongo import tenant_collection
+from database.mongo import tenant_collection, create_tenant_db
 from database.redis import get_redis_connection
 from models.tenant import TenantCreate, Tenant
 
 def create_tenant(tenant: TenantCreate):
     new_tenant = tenant_collection.insert_one(tenant.model_dump())
+    create_tenant_db(str(new_tenant.inserted_id))
     return Tenant(
         id=new_tenant.inserted_id,
         name=tenant.name,

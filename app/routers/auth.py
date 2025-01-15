@@ -46,7 +46,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
             "tenant_id": user.tenant_id
             }, expires_delta=refresh_token_expires)  
     set_refresh_token(refresh_token,refresh_token_expires)
-    return Token(access_token=access_token, refresh_token=refresh_token)  
+    return Token(access_token=access_token, refresh_token=refresh_token, tenant_id=user.tenant_id) 
   
 @router.post("/refresh")  
 async def refresh_access_token(token_data: Annotated[tuple[User, str], Depends(validate_refresh_token)]):  

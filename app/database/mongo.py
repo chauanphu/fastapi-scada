@@ -24,9 +24,8 @@ def get_tenants_collection() -> Collection:
 
 # Resources for each tenant
 def create_tenant_db(tenant_id: str) -> Collection:
-    db = client[tenant_id]
+    db = client["tenant_" + tenant_id]
     fs = gridfs.GridFS(db)
-    create_collection(db, "devices", schema=DeviceSchema, indexes=[IndexModel([("mac", 1), ("name", 1)], unique=True)])
     create_time_collection(db, "audit", indexes=[
         IndexModel([("metadata.username", 1), ("timestamp", 1)], name="username_timestamp_idx")
     ])
@@ -40,7 +39,7 @@ def create_tenant_db(tenant_id: str) -> Collection:
     ])
 
 def get_tenant_db(tenant_id: str) -> Collection:
-    return client[tenant_id]
+    return client["tenant_" + tenant_id]
 
 def create_collection(database, collection_name: str, schema: dict = None, indexes: IndexModel = None) -> Collection:
     if collection_name not in database.list_collection_names():
@@ -80,19 +79,19 @@ def create_time_collection(database, collection_name: str, indexes: list = []) -
     return database[collection_name]
 
 def get_devices_collection(tenant_id: str) -> Collection:
-    return client[tenant_id]["devices"]
+    return client["tenant_" + tenant_id]["devices"]
 
 def get_audit_collection(tenant_id: str) -> Collection:
-    return client[tenant_id]["audit"]
+    return client["tenant_" + tenant_id]["audit"]
 
 def get_alerts_collection(tenant_id: str) -> Collection:
-    return client[tenant_id]["alerts"]
+    return client["tenant_" + tenant_id]["alerts"]
 
 def get_sensors_collection(tenant_id: str) -> Collection:
-    return client[tenant_id]["sensors"]
+    return client["tenant_" + tenant_id]["sensors"]
 
 def get_fs(tenant_id: str) -> gridfs.GridFS:
-    return gridfs.GridFS(client[tenant_id])
+    return gridfs.GridFS(client["tenant_" + tenant_id])
 
 
 global_db = client["scada_db"]
