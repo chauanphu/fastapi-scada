@@ -1,6 +1,5 @@
-from fastapi import HTTPException
 from database.mongo import device_collection, get_sensors_collection
-from models.auth import Role, User
+from models.auth import User
 from models.device import Device
 from models.report import SensorModel, SensorFull
 from datetime import datetime, timedelta
@@ -8,7 +7,7 @@ from database.redis import get_redis_connection
 from services.alert import process_data
 import json
 import pytz
-from crud.device import read_device
+from crud.device import verify_owner
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
@@ -73,15 +72,6 @@ def get_cache_status() -> list[SensorFull]:
         devices = redis.mget(keys)
         return [SensorFull(**json.loads(device)) for device in devices]
     return None
-
-def verify_owner(current_user: User, device_id: str) -> dict:
-    # Check if the device exists in the database
-    device = read_device(device_id)
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    if current_user.role == Role.SUPERADMIN or device["tenant_id"] == current_user.tenant_id:
-        return device
-    raise HTTPException(status_code=401, detail="Device does not belong to the tenant")
 
 def agg_monthly(current_user: User, device_id: str, start_date: datetime = None, end_date: datetime = None):
     device: Device = verify_owner(current_user, device_id)

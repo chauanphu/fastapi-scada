@@ -4,7 +4,7 @@ import bson
 from fastapi import HTTPException
 from database.mongo import device_collection
 from database.redis import get_redis_connection
-from models.auth import User
+from models.auth import Role, User
 from models.device import DeviceCreate, DeviceConfigure, Device, DeviceEdit
 import bson
 
@@ -53,13 +53,19 @@ def read_devices(tenant_id: str = "") -> list[Device]:
         return []
     return [Device(**device) for device in devices]
 
-def configure_device(current_user: User, device_id: str, device: DeviceConfigure) -> Device:
-    # Check if the device belongs to the tenant
+
+def verify_owner(current_user: User, device_id: str) -> dict:
+    # Check if the device exists in the database
     device = read_device(device_id)
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    if device["tenant_id"] != current_user.tenant_id and current_user.role != "SUPERADMIN":
-        raise HTTPException(status_code=401, detail="Device does not belong to the tenant")
+    if current_user.role == Role.SUPERADMIN or device.tenant_id == current_user.tenant_id:
+        return device
+    raise HTTPException(status_code=401, detail="Device does not belong to the tenant")
+
+def configure_device(current_user: User, device_id: str, device: DeviceConfigure) -> Device:
+    # Check if the device belongs to the tenant
+    device: Device = verify_owner(current_user, device_id)
     # Convert _id to ObjectId
     device_id = bson.ObjectId(device_id)
     device_data = device.model_dump(exclude_unset=True)
@@ -68,7 +74,7 @@ def configure_device(current_user: User, device_id: str, device: DeviceConfigure
         {"$set": device_data},
         return_document=True
     )
-    return updated
+    return Device(**updated)
 
 def update_device(device_id: str, device: DeviceEdit) -> Device:
     device_id = bson.ObjectId(device_id)
