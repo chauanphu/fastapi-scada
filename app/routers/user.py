@@ -25,7 +25,6 @@ def get_users(
         results = read_users(tenant_id=current_user.tenant_id)
         audit = AuditLog(action=Action.READ, username=current_user.username, resource="tài khoản", role=current_user.role.value, detail="Xem danh sách tài khoản")
         append_audit_log(audit, current_user.role, current_user.tenant_id)
-        print("Audit log appended")
     # Exclude superadmin from the list
     if current_user.role != Role.SUPERADMIN:
         results = [user for user in results if user.role != Role.SUPERADMIN]
@@ -84,7 +83,7 @@ def delete(
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete self")
     result = delete_user(user_id)
-    audit = AuditLog(action=Action.DELETE, username=current_user.username, resource="tài khoản", role=current_user.role.value, detail=f"Cập nhật tài khoản {user.username}")
+    audit = AuditLog(action=Action.DELETE, username=current_user.username, resource="tài khoản", role=current_user.role.value, detail=f"Xóa tài khoản {user_id}")
     append_audit_log(audit, current_user.role, current_user.tenant_id)
     if result:
         return status.HTTP_200_OK

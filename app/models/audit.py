@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 from bson import ObjectId
+from fastapi.params import Query
 from pydantic import BaseModel, Field
 from utils import get_real_time
 
@@ -29,8 +30,8 @@ class AuditLog(BaseModel):
         json_encoders = {ObjectId: str}  # Ensures ObjectId is serialized to a string
 
 class AuditQuery(BaseModel):
-    username: str | None = None
-    action: str | None = None
-    resource: str | None = None
-    start: datetime | None = None
-    end: datetime | None = None
+    username: Optional[str] | None = None,
+    action: Optional[Action] | None = None,
+    resource: Optional[str] | None = None,
+    start: datetime | None = Query(None, example="2022-01-01T00:00:00"),
+    end: datetime | None = Query(None, example="2022-12-31T23:59:59")

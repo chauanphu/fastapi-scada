@@ -1,9 +1,9 @@
 # APPEND AND READ AUDIT LOGS
-from datetime import datetime, timedelta
 from database.mongo import get_audit_collection
 from models.audit import AuditLog
 from models.auth import Role
 from utils.logging import logger
+from utils import fix_offset
 
 def append_audit_log(audit: AuditLog, role: Role = None, tenant_id: str = None):
     if not role is None:
@@ -39,14 +39,14 @@ def read_audit_logs(
             query["timestamp"] = {"$gte": start}
         elif end:
             query["timestamp"] = {"$lte": end}
-        else:
-            # Query for 1 day back
-            query["timestamp"] = {"$gte": (datetime.now() - timedelta(days=1)).isoformat()}
             
-        # Exclude role == SUPERADMIN
-        query["role"] = {"$ne": Role.SUPERADMIN.value}
         audit_collection = get_audit_collection(tenant_id)
-        return [AuditLog(**audit) for audit in audit_collection.find(query)]
+        results = audit_collection.find(query)
+        # The results is in UTC+0, convert and offset to local timezone
+        results = [result for result in results]
+        for result in results:
+            result["timestamp"] = fix_offset(result["timestamp"])
+        return [AuditLog(**result) for result in results]
     except Exception as e:
         logger.error(f"Error reading audit logs: {e}")
         return []

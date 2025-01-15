@@ -79,19 +79,19 @@ def create_time_collection(database, collection_name: str, indexes: list = []) -
     return database[collection_name]
 
 def get_devices_collection(tenant_id: str) -> Collection:
-    return client["tenant_" + tenant_id]["devices"]
+    return get_tenant_db(tenant_id)["devices"]
 
 def get_audit_collection(tenant_id: str) -> Collection:
-    return client["tenant_" + tenant_id]["audit"]
+    return get_tenant_db(tenant_id)["audit"]
 
 def get_alerts_collection(tenant_id: str) -> Collection:
-    return client["tenant_" + tenant_id]["alerts"]
+    return get_tenant_db(tenant_id)["alerts"]
 
 def get_sensors_collection(tenant_id: str) -> Collection:
-    return client["tenant_" + tenant_id]["sensors"]
+    return get_tenant_db(tenant_id)["sensors"]
 
 def get_fs(tenant_id: str) -> gridfs.GridFS:
-    return gridfs.GridFS(client["tenant_" + tenant_id])
+    return gridfs.GridFS(get_tenant_db(tenant_id))
 
 
 global_db = client["scada_db"]
