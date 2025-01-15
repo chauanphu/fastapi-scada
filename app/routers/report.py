@@ -3,7 +3,6 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from models.audit import Action
 from models.auth import Role
 from models.report import EnergyReportResponse
 from crud.report import agg_daily, agg_hourly, agg_monthly

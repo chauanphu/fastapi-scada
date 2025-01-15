@@ -1,4 +1,10 @@
-src/.venv
+# Virtual Environment
+app/.venv
+app/venv
+
+# Cache data
+app/__pycache__
+
 README.md
 Dockerfile
 .gitignore

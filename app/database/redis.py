@@ -40,14 +40,3 @@ def remove_refresh_token(token):
     if redis:
         return redis.delete(f"rtoken:{token}")
     return False
-
-async def subscribe(channel: str, callback: Coroutine):
-    redis = get_redis_connection()
-    if redis:
-        pubsub = redis.pubsub()
-        pubsub.subscribe(channel)
-        while True:
-            message = pubsub.get_message()
-            if message and message["type"] == "message":
-                await callback(message["data"])
-    return False

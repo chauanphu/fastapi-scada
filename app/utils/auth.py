@@ -84,7 +84,9 @@ async def validate_refresh_token(token: Annotated[str, Depends(oauth2_scheme)]):
         if not check_refresh_token(token):
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])  
             username: str = payload.get("sub")  
-            role: str = payload.get("role")  
+            role: str = payload.get("role")
+            tenant_id: str = payload.get("tenant_id")
+
             if username is None or role is None:  
                 raise credentials_exception  
         else:  
@@ -93,7 +95,7 @@ async def validate_refresh_token(token: Annotated[str, Depends(oauth2_scheme)]):
     except (JWTError, ValidationError):  
         raise credentials_exception  
   
-    user = read_user_by_username(username)
+    user = read_user_by_username(username, tenant_id, superAdmin=True)
   
     if user is None:  
         raise credentials_exception  
@@ -104,13 +106,13 @@ async def validate_refresh_token(token: Annotated[str, Depends(oauth2_scheme)]):
 async def validate_ws_token(token: str):
     credentials_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")  
     try:
-        if token is None:  
+        if token is None:
             raise credentials_exception
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])  
-        username: str = payload.get("sub")  
-        role: str = payload.get("role")  
-        if username is None or role is None:  
-            raise credentials_exception  
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        role: str = payload.get("role")
+        if username is None or role is None:
+            raise credentials_exception
     except (JWTError, ValidationError):  
         raise credentials_exception  
   
@@ -119,4 +121,4 @@ async def validate_ws_token(token: str):
     if user is None:  
         raise credentials_exception  
   
-    return user, token
+    return user

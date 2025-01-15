@@ -75,8 +75,18 @@ def get_cached_alert(device_id: str) -> str:
 def increase_alert_count(device_id: str):
     redis = get_redis_connection()
     response = redis.incr("alert_count:" + device_id)
-    print(f"Alert count for device {device_id} is {response}")
     redis.publish("alert", f"{device_id}:{response}")
+
+# Pub/sub latest alert message
+def subscribe_alert():
+    redis = get_redis_connection()
+    pubsub = redis.pubsub()
+    pubsub.subscribe("alert:*")
+    return pubsub
+
+def publish_alert(message: AlertModel, tenant_id: str):
+    redis = get_redis_connection()
+    redis.publish("alert:" + tenant_id, message.model_dump_json())
 
 def reset_alert_count(device_id: str):
     redis = get_redis_connection()
@@ -103,7 +113,7 @@ def process_data(data: SensorFull, tenant_id: str):
             # Cache the new state
             redis = get_redis_connection()
             redis.set("state:" + data.device_id, state.name)
-            increase_alert_count(data.device_id)
+            publish_alert(new_alert)
 
     except Exception as e:
         logger.error(f"Failed to process alert data: {e}")

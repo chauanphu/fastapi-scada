@@ -4,6 +4,7 @@ services:
   app:
     build: .
     container_name: fastapi-scada
+    image: be-scada:2.0.0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 5s
@@ -14,7 +15,7 @@ services:
     networks:
       - my-network
     env_file:
-      - ./app/.env
+      - .env
     depends_on:
       - mongodb
       - redis-cache
