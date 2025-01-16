@@ -38,3 +38,4 @@ class Token(BaseModel):
   access_token: str | None = None  
   refresh_token: str | None = None
   tenant_id: str | None = None
+  role: Role | None = None
