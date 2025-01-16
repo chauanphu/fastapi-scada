@@ -8,6 +8,7 @@ from utils import get_real_time
 
 class Action(Enum):
     LOGIN = "đăng nhập"
+    LOGOUT = "đăng xuất"
     READ = "đọc"
     WRITE = "thêm"
     DELETE = "xóa"
