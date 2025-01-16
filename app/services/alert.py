@@ -2,9 +2,8 @@
 ## Alert Service
 This service is responsible for checking the status of the device and generating alerts based on the status.
 """
-
 from models.report import SensorFull
-from models.alert import AlertModel, DeviceState, AlertSeverity
+from models.alert import AlertModel, AlertModelFull, DeviceState, AlertSeverity
 from datetime import datetime, timedelta
 import pytz
 from database.mongo import get_alerts_collection
@@ -42,20 +41,23 @@ class Alert:
             on_working_hours = self.in_working_hours()
             toggle = self.sensor_data.toggle
             auto = self.sensor_data.auto
+            voltage = self.sensor_data.voltage
+
             # Normal conditions
             ## Device is on manually or automatically during working hours
-            if (working and toggle) and (not auto or (auto and on_working_hours)):
+            if voltage > 0 and (working and toggle) and (not auto or (auto and on_working_hours)):
                 return DeviceState.WORKING, AlertSeverity.NORMAL
             ## Device is off manually or automatically when out of working hours
-            elif (not working and not toggle) and (not auto or (auto and not on_working_hours)):
+            elif voltage > 0 and (working and not toggle) and (not auto or (auto and not on_working_hours)):
                 return DeviceState.OFF, AlertSeverity.NORMAL
             # Critical conditions
             ## Devie is lost power
+            elif voltage == 0 or (not working and toggle):
+                return DeviceState.POWER_LOST, AlertSeverity.CRITICAL
             elif not working and toggle:
                 return DeviceState.POWER_LOST, AlertSeverity.CRITICAL
             ## Device is still on despite switching down
             elif working and not toggle:
-                print(f"working: {working}, toggle: {toggle}")
                 return DeviceState.WORKING, AlertSeverity.CRITICAL
             # Warning conditions
             ## Device is on out of working hours
@@ -72,16 +74,10 @@ def get_cached_alert(device_id: str) -> str:
     cached_alert = redis.get("state:" + device_id) # Get UTF-8 string
     return cached_alert.decode("utf-8") if cached_alert else ""
 
-def increase_alert_count(device_id: str):
-    redis = get_redis_connection()
-    response = redis.incr("alert_count:" + device_id)
-    redis.publish("alert", f"{device_id}:{response}")
-
 # Pub/sub latest alert message
 def subscribe_alert():
     redis = get_redis_connection()
     pubsub = redis.pubsub()
-    pubsub.subscribe("alert:*")
     return pubsub
 
 def publish_alert(message: AlertModel, tenant_id: str):
@@ -113,7 +109,10 @@ def process_data(data: SensorFull, tenant_id: str):
             # Cache the new state
             redis = get_redis_connection()
             redis.set("state:" + data.device_id, state.name)
-            publish_alert(new_alert)
+            # Convert to AlertModelFull
+            full_alert = AlertModelFull(**new_alert.model_dump(), mac=data.mac, tenant_id=tenant_id)
+
+            publish_alert(full_alert, tenant_id)
 
     except Exception as e:
         logger.error(f"Failed to process alert data: {e}")

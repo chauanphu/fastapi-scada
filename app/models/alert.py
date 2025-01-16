@@ -56,3 +56,13 @@ class AlertModel(BaseModel):
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}  # Ensures ObjectId is serialized to a string
     
+
+class AlertModelFull(AlertModel):
+    mac: str
+    tenant_id: str
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}  # Ensures ObjectId is serialized to a string
+        orm_mode = True
