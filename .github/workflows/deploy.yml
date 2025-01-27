@@ -61,7 +61,7 @@ jobs:
             cd scada
             
             # Pull the updated images (fastapi-app is now tagged "latest" in docker-compose)
-            docker-compose pull fastapi-app
+            docker compose pull fastapi-app
             
             # Recreate containers in detached mode
-            docker-compose up -d
+            docker compose up -d
