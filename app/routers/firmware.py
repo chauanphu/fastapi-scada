@@ -1,12 +1,14 @@
-import os
-from typing import Annotated
+from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
-from fastapi.responses import FileResponse
 from models.auth import User
 
+from models.device import Device
 from utils.auth import Role, RoleChecker
-from crud.firmware import add_new_firmware, get_latest_firmware, get_all_metadata as crud_get_all_metadata
+from crud.firmware import add_new_firmware, get_firmware_by_version, get_latest_firmware, get_all_metadata as crud_get_all_metadata
+from crud.device import read_device
 from utils.logging import logger
+from services.mqtt import client
+
 router = APIRouter(
     prefix="/firmware",
     tags=["firmware"]
@@ -40,9 +42,12 @@ async def upload_firmware(
     return status.HTTP_201_CREATED
 
 # Get latest firmware
-@router.get("/latest/")
-async def get_latest():
-    file = get_latest_firmware()
+@router.get("/")
+async def download_firmware(version: Optional[str] = None):
+    if not version or version == "latest":
+        file = get_latest_firmware()
+    else:
+        file = get_firmware_by_version(version)
     if not file:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -80,15 +85,30 @@ async def get_all_metadata(current_user: Annotated[User, Depends(RoleChecker(all
 async def update_device(
     current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))],
     device_id: str,
-    version: str,
+    version: Optional[str] = None
 ):
-    pass
-
+    try:
+        device: Device = read_device(device_id)
+        if not device:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Device not found."
+            )
+        client.update_device(device.mac, version)
+        return status.HTTP_200_OK
+    except Exception as e:
+        logger.error(f"Failed to update device: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update device")
+    
 # Mass update devices
 @router.put("/update/")
 async def mass_update_devices(
     current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))],
-    version: str,
+    version: Optional[str] = None
 ):
-    pass
-
+    try:
+        client.update_all(version)
+        return status.HTTP_200_OK
+    except Exception as e:
+        logger.error(f"Failed to update devices: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update devices")

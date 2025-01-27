@@ -30,17 +30,14 @@ def get_latest_firmware() -> GridOut:
         return file
     return None
     
-def get_firmware(file_id) -> tuple[bytes, str, dict]:
+# Get file by version
+def get_firmware_by_version(version: str) -> GridOut:
+    fs = get_fs()
     try:
-        fs = get_fs()
-        # Retrieve the file by its ID
-        grid_out = fs.get(file_id)
-        # Read the contents (or stream them as needed)
-        file_data = grid_out.read()
-        # Return both file data and metadata
-        return file_data, grid_out.filename, grid_out.metadata
+        file = fs.find_one({"metadata.version": version})
+        return file
     except NoFile:
-        return None, None, None
+        return None
 
 def get_all_metadata() -> list[MetaData]:
     """

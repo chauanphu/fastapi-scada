@@ -88,6 +88,30 @@ class Client(mqtt_client.Client):
         else:
             self.publish(topic, json.dumps(body))
 
+    # Update all device
+    def update_all(self, version: str):
+        topic = "firmware/update"
+        body = {
+            "version": version if version else "latest"
+        }
+        if DEBUG:
+            print("Topic", topic)
+            print("Body", body)
+        else:
+            self.publish(topic, json.dumps(body))
+
+    # Update a device
+    def update_device(self, mac: str, version: str):
+        topic = f"unit/{mac}/update"
+        body = {
+            "version": version if version else "latest"
+        }
+        if DEBUG:
+            print("Topic", topic)
+            print("Body", body)
+        else:
+            self.publish(topic, json.dumps(body))
+
     ## Override
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
         logger.info(f"Connected with result code {reason_code}")
