@@ -60,8 +60,8 @@ jobs:
             # Move to the directory where docker-compose.yml resides
             cd scada
             
-            # Pull the updated images (app is now tagged "latest" in docker-compose)
-            docker-compose pull app
+            # Pull the updated images (fastapi-app is now tagged "latest" in docker-compose)
+            docker-compose pull fastapi-app
             
             # Recreate containers in detached mode
             docker-compose up -d
