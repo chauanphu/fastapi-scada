@@ -14,6 +14,41 @@ router = APIRouter(
     tags=["firmware"]
 )
 
+deprecated_router = APIRouter(
+    prefix="/file",
+    tags=["firmware"],
+    deprecated=True
+)
+
+# Serve the firmware file
+@deprecated_router.get("/{filename}")
+async def deprecated_download_firmware(filename: Optional[str], version: Optional[str] = None):
+    if not version or version == "latest":
+        file = get_latest_firmware()
+    else:
+        file = get_firmware_by_version(version)
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No firmware found."
+        )
+    headers = {"Content-Disposition": f"attachment; filename={file.filename}"}
+    if "hash_value" in file.metadata:
+        headers["X-Checksum"] = file.metadata["hash_value"]
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Firmware metadata is missing hash value."
+        )
+    if "version" in file.metadata:
+        headers["X-Version"] = file.metadata["version"]
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Firmware metadata is missing version."
+        )
+    return Response(content=file.read(), media_type="application/octet-stream", headers=headers)
+
 # Upload firmware
 @router.post("/upload/")
 async def upload_firmware(

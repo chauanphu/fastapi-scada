@@ -4,7 +4,7 @@ services:
   app:
     build: .
     container_name: fastapi-scada
-    image: fastapi-scada:2.0.0
+    image: fastapi-scada:2.1.0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 5s
