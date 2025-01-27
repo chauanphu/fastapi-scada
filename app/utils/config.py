@@ -16,6 +16,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day in minutes
 POWERLOST_THRESHOLD = 50 # 50W
 DEBUG = config("DEBUG", default=False, cast=bool)
+ACCESS_TOKEN_EXPIRE_MINUTES = config("ACCESS_TOKEN_EXPIRE_MINUTES", default=60, cast=int) # 1 hour
 
 # MQTT setup
 MQTT_BROKER = config("MQTT_BROKER")
