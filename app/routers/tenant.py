@@ -16,14 +16,14 @@ router = APIRouter(
 @router.get("/", response_model=list[Tenant])
 def get(_: Annotated[
     User, Depends(
-    RoleChecker(allowed_roles=[Role.SUPERADMIN],isLogged=False))
+    RoleChecker(allowed_roles=[Role.SUPERADMIN]))
     ]):
     return read_tenants()
 
 @router.post("/")
 def post(_: Annotated[
     User, Depends(
-    RoleChecker(allowed_roles=[Role.SUPERADMIN], isLogged=False))
+    RoleChecker(allowed_roles=[Role.SUPERADMIN]))
     ]
     , tenant: TenantCreate):
     try:
@@ -38,7 +38,7 @@ def post(_: Annotated[
 @router.put("/{tenant_id}")
 def put(_: Annotated[
     User, Depends(
-    RoleChecker(allowed_roles=[Role.SUPERADMIN], isLogged=False))
+    RoleChecker(allowed_roles=[Role.SUPERADMIN]))
     ]
     ,
     tenant_id: str,
@@ -55,7 +55,7 @@ def put(_: Annotated[
 @router.delete("/{tenant_id}")
 def delete(_: Annotated[
     User, Depends(
-    RoleChecker(allowed_roles=[Role.SUPERADMIN], isLogged=False))
+    RoleChecker(allowed_roles=[Role.SUPERADMIN]))
     ]
     , tenant_id: str):
     try:

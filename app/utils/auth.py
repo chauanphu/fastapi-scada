@@ -62,11 +62,8 @@ def create_token(data: dict, expires_delta: timedelta | None = None):
     return encoded_jwt
 
 class RoleChecker:  
-  def __init__(self, allowed_roles: list[Role] | str, action: Action= None, resource: str = None, isLogged: bool = True):
+  def __init__(self, allowed_roles: list[Role] | str):
     self.allowed_roles = allowed_roles  
-    self.action = action
-    self.resource = resource
-    self.isLogged = isLogged
 
   def __call__(self, user: Annotated[User, Depends(get_current_active_user)]):
     if self.allowed_roles == "*":

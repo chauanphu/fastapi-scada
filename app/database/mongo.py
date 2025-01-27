@@ -90,8 +90,9 @@ def get_alerts_collection(tenant_id: str) -> Collection:
 def get_sensors_collection(tenant_id: str) -> Collection:
     return get_tenant_db(tenant_id)["sensors"]
 
-def get_fs(tenant_id: str) -> gridfs.GridFS:
-    return gridfs.GridFS(get_tenant_db(tenant_id))
+def get_fs() -> gridfs.GridFS:
+    collection: Collection = client["scada_db"]
+    return gridfs.GridFS(collection)
 
 
 global_db = client["scada_db"]

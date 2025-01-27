@@ -33,9 +33,7 @@ def get_users(
 @router.post("/", response_model=Account)
 def create_new_user(current_user: Annotated[
     User, Depends(
-    RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN],
-                action=Action.READ,
-                resource="tài khoản"))
+    RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN]))
     ]
     , user: AccountCreate):
     try:
