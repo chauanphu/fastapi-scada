@@ -47,6 +47,8 @@ class Alert:
             ## Device is on manually or automatically during working hours
             if voltage > 0 and (working and toggle) and (not auto or (auto and on_working_hours)):
                 return DeviceState.WORKING, AlertSeverity.NORMAL
+            elif not working and not toggle and not on_working_hours and auto:
+                return DeviceState.OFF, AlertSeverity.NORMAL
             ## Device is off manually or automatically when out of working hours
             elif voltage > 0 and (working and not toggle) and (not auto or (auto and not on_working_hours)):
                 return DeviceState.OFF, AlertSeverity.NORMAL
@@ -66,6 +68,8 @@ class Alert:
             ## Device is off out of working hours
             elif not working and auto and on_working_hours:
                 return DeviceState.OFF_OUT_OF_HOUR, AlertSeverity.WARNING
+            else:
+                return DeviceState.WORKING, AlertSeverity.NORMAL
         else: 
             return DeviceState.DiSCONNECTED, AlertSeverity.CRITICAL
         
