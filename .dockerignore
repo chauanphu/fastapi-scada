@@ -8,3 +8,4 @@ app/__pycache__
 README.md
 Dockerfile
 .gitignore
+.vscode
