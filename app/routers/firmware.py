@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse
 from models.auth import User
 
 from utils.auth import Role, RoleChecker
-from crud.firmware import add_new_firmware, get_latest_firmware
+from crud.firmware import add_new_firmware, get_latest_firmware, get_all_metadata as crud_get_all_metadata
 from utils.logging import logger
 router = APIRouter(
     prefix="/firmware",
@@ -15,7 +15,7 @@ router = APIRouter(
 # Upload firmware
 @router.post("/upload/")
 async def upload_firmware(
-    current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN], isLogged=False))],
+    current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))],
     file: UploadFile = File(...), 
     version: str = "0.1.0",
 ):
@@ -65,10 +65,20 @@ async def get_latest():
         )
     return Response(content=file.read(), media_type="application/octet-stream", headers=headers)
 
+# Get all firmware metadata
+@router.get("/metadata/")
+async def get_all_metadata(current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))]):
+    try:
+        metadata = crud_get_all_metadata()
+        return metadata
+    except Exception as e:
+        logger.error(f"Failed to get firmware metadata: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get firmware metadata")
+
 # Update device
 @router.put("/update/{device_id}")
 async def update_device(
-    current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN], isLogged=False))],
+    current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))],
     device_id: str,
     version: str,
 ):
@@ -77,7 +87,7 @@ async def update_device(
 # Mass update devices
 @router.put("/update/")
 async def mass_update_devices(
-    current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN], isLogged=False))],
+    current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))],
     version: str,
 ):
     pass
