@@ -16,3 +16,9 @@ redis_data/
 
 # Logs
 logs/
+
+# Nginx configuration
+nginx
+
+# Production
+docker-compose.prod.yml

@@ -19,6 +19,10 @@ def cache_unknown_device(mac: str) -> None:
 
 def create_sensor_data(data: dict) -> str:
     # Check if the device exists in the database
+    data["latitude"] = data["gps_lat"]
+    data["longitude"] = data["gps_long"]
+    del data["gps_lat"]
+    del data["gps_long"]
     cached_data = mac2device(data["mac"])
     if cached_data is None:
         # Cache the unknown device

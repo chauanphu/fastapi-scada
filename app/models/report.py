@@ -31,6 +31,8 @@ class SensorFull(SensorModel):
     minute_on: int
     minute_off: int
     auto: bool
+    latitude: float
+    longitude: float
     tenant_id: str
     
     class Config:

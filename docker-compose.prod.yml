@@ -1,47 +1,117 @@
-version: '3.8'
 services:
-  # FastAPI
-  app:
-    image: chauanphu/fastapi-scada:2.0.0
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 5s
-      timeout: 2s
-      retries: 20
+  # --------------------------
+  # 1) MQTTT Broker
+  # --------------------------
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto
     ports:
-      - "3000:3000"
+      - "1883:1883"  # MQTT default port
+    volumes:
+      - ./mosquitto/config:/mosquitto/config  # Mount custom config
+      - ./mosquitto/data:/mosquitto/data      # Persist broker data
+      - ./mosquitto/log:/mosquitto/log       # Persist logs
+    restart: always
     networks:
       - my-network
-    env_file:
-      - .env
-    depends_on:
-      - mongodb
-      - redis-cache
-    volumes:
-      - ./logs:/app/logs
-
+    environment:
+      VIRTUAL_HOST: "cgp.chaugiaphat.com"
+      VIRTUAL_PORT: "1883"
+      LETSENCRYPT_HOST: "cgp.chaugiaphat.com"
+      LETSENCRYPT_EMAIL: "chauanphu@gmail.com"
+    
+  # --------------------------
+  # 2) Databases
+  # --------------------------
   mongodb:
     image: mongo:6.0
     container_name: mongodb
     restart: always
     volumes:
       - ./mongo_data:/data/db
-    ports:
-      - "27017:27017"
     networks:
       - my-network
-
+  # --------------------------
+  # 3) Redis Cache
+  # --------------------------
   redis-cache:
     image: redis:6.0
     container_name: redis-cache
     restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - ./redis_data:/data
     networks:
       - my-network
-
+  # --------------------------
+  # 4) FastAPI App
+  # --------------------------
+  fastapi-app:
+    image: chauanphu/fastapi-scada:2.0.0
+    container_name: fastapi-app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 20
+    env_file:
+      - .env
+    environment:
+      VIRTUAL_HOST: "scada.chaugiaphat.com"
+      VIRTUAL_PORT: "3000"
+      LETSENCRYPT_HOST: "scada.chaugiaphat.com"
+      LETSENCRYPT_EMAIL: "chauanphu@gmail.com"
+    depends_on:
+      - mongodb
+      - redis-cache
+      - mosquitto
+    volumes:
+      - ./logs:/app/logs
+    ports:
+      - "3000:3000"
+    networks:
+      - my-network
+  # --------------------------
+  # 5) Nginx Reverse Proxy
+  # --------------------------
+  nginx-proxy:
+    image: jwilder/nginx-proxy:alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro  # Required for container auto-discovery
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/vhost.d:/etc/nginx/vhost.d
+      - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/html:/usr/share/nginx/html  # Ensure this exists for ACME challenge
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - fastapi-app
+      - mosquitto
+    networks:
+      - my-network
+  # ---------------------------------------------
+  # 6) LETSENCRYPT COMPANION: SSL Automation
+  # ---------------------------------------------
+  acme-companion:
+    image: nginxproxy/acme-companion
+    container_name: acme-companion
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro # Required for container auto-discovery
+      - ./nginx/vhost.d:/etc/nginx/vhost.d
+      - ./nginx/certs:/etc/nginx/certs
+      - ./nginx/html:/usr/share/nginx/html  # Ensure this exists for ACME challenge
+      - ./acme:/etc/acme.sh
+    depends_on:
+      - nginx-proxy
+    environment:
+      NGINX_PROXY_CONTAINER: "nginx-proxy"
+      DEFAULT_EMAIL: "chauanphu@gmail.com"
+    networks:
+      - my-network
 networks:
   my-network:
     driver: bridge
