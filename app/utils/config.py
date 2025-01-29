@@ -3,7 +3,7 @@ from decouple import config
 # Import all the models in the database
 REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
-
+FRONTEND_ENDPOINT = config("FRONTEND_ENDPOINT")
 SUPERADMIN_USERNAME = config("SUPERADMIN_USERNAME")
 SUPERADMIN_PASSWORD = config("SUPERADMIN_PASSWORD")
 SUPERADMIN_EMAIL = config("SUPERADMIN_EMAIL")

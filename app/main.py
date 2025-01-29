@@ -6,7 +6,7 @@ from routers import api_router
 from database import mongo, redis
 from database.mongo import get_users_collection
 from utils.auth import hash_password
-from utils.config import SUPERADMIN_USERNAME, SUPERADMIN_PASSWORD, SUPERADMIN_EMAIL
+from utils.config import SUPERADMIN_USERNAME, SUPERADMIN_PASSWORD, SUPERADMIN_EMAIL, FRONTEND_ENDPOINT, DEBUG
 from utils.logging import logger
 
 from models.auth import Role
@@ -47,11 +47,9 @@ app = FastAPI(
 
 app.include_router(api_router)
     
-origins = [
-    "http://localhost:3000",
-    "http://localhost:5173", # VITE dev server
-    "https://scada.chaugiaphat.com",
-]
+origins = [FRONTEND_ENDPOINT]
+if DEBUG:
+    origins.append("http://localhost:3000")
 
 app.add_middleware(
     CORSMiddleware,
