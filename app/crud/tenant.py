@@ -1,6 +1,6 @@
 from database.mongo import tenant_collection, create_tenant_db
-from database.redis import get_redis_connection
 from models.tenant import TenantCreate, Tenant
+import bson
 
 def create_tenant(tenant: TenantCreate):
     new_tenant = tenant_collection.insert_one(tenant.model_dump())
@@ -20,11 +20,16 @@ def read_tenants():
 
 def update_tenant(tenant_id: str, tenant: TenantCreate):
     tenant = tenant_collection.find_one_and_update(
-        {"_id": tenant_id},
-        {"$set": tenant.model_dump()},
+        {"_id": bson.ObjectId(tenant_id)},
+        {"$set": tenant.model_dump(exclude_none=True, exclude_unset=True)},
         return_document=True
     )
-    return Tenant(**tenant)
+    if not tenant:
+        return False
+    return True
 
 def delete_tenant(tenant_id: str):
-    tenant_collection.find_one_and_delete({"_id": tenant_id})
+    result = tenant_collection.find_one_and_delete({"_id": bson.ObjectId(tenant_id)})
+    if not result:
+        return False
+    return True

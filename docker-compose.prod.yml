@@ -15,9 +15,9 @@ services:
     networks:
       - my-network
     environment:
-      VIRTUAL_HOST: "cgp.chaugiaphat.com"
+      VIRTUAL_HOST: "cgp.captechvn.com"
       VIRTUAL_PORT: "1883"
-      LETSENCRYPT_HOST: "cgp.chaugiaphat.com"
+      LETSENCRYPT_HOST: "cgp.captechvn.com"
       LETSENCRYPT_EMAIL: "chauanphu@gmail.com"
     
   # --------------------------
@@ -46,7 +46,7 @@ services:
   # 4) FastAPI App
   # --------------------------
   fastapi-app:
-    image: chauanphu/fastapi-scada:2.0.0
+    image: chauanphu/fastapi-scada:latest
     container_name: fastapi-app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
@@ -56,10 +56,10 @@ services:
     env_file:
       - .env
     environment:
-      VIRTUAL_HOST: "scada.chaugiaphat.com"
-      VIRTUAL_PORT: "3000"
-      LETSENCRYPT_HOST: "scada.chaugiaphat.com"
-      LETSENCRYPT_EMAIL: "chauanphu@gmail.com"
+      VIRTUAL_HOST: "..."
+      VIRTUAL_PORT: "..."
+      LETSENCRYPT_HOST: "..."
+      LETSENCRYPT_EMAIL: "..."
     depends_on:
       - mongodb
       - redis-cache
@@ -68,6 +68,21 @@ services:
       - ./logs:/app/logs
     ports:
       - "3000:3000"
+    networks:
+      - my-network
+  # --------------------------
+  # 5) reactjs-app
+  # --------------------------
+  reactjs-app:
+    image: chauanphu/scada-reactjs:latest
+    container_name: reactjs-app
+    restart: unless-stopped
+    environment:
+      VIRTUAL_HOST: "..."
+      VIRTUAL_PORT: "80"
+      LETSENCRYPT_HOST: "..."
+      LETSENCRYPT_EMAIL: "..."
+      NODE_ENV: production
     networks:
       - my-network
   # --------------------------
@@ -101,7 +116,7 @@ services:
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro # Required for container auto-discovery
-      - ./nginx/vhost.d:/etc/nginx/vhost.d
+      - ./nginx/vhost.d:/etc/nginx/vhost.d:ro
       - ./nginx/certs:/etc/nginx/certs
       - ./nginx/html:/usr/share/nginx/html  # Ensure this exists for ACME challenge
       - ./acme:/etc/acme.sh
@@ -109,7 +124,7 @@ services:
       - nginx-proxy
     environment:
       NGINX_PROXY_CONTAINER: "nginx-proxy"
-      DEFAULT_EMAIL: "chauanphu@gmail.com"
+      DEFAULT_EMAIL: "..."
     networks:
       - my-network
 networks:

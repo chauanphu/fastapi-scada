@@ -44,10 +44,12 @@ def put(_: Annotated[
     tenant_id: str,
     tenant: TenantCreate):
     try:
-        updated_tenant = update_tenant(tenant_id, tenant)
-        if updated_tenant:
+        if not tenant:
+            raise HTTPException(status_code=400, detail="No tenant provided")
+        success = update_tenant(tenant_id, tenant)
+        if success:
             return status.HTTP_200_OK
-        raise HTTPException(status_code=400, detail="Failed to update tenant")
+        raise HTTPException(status_code=400, detail="No tenant updated")
     except Exception as e:
         logger.error(f"Failed to update tenant {tenant_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update tenant")
@@ -59,8 +61,10 @@ def delete(_: Annotated[
     ]
     , tenant_id: str):
     try:
-        delete_tenant(tenant_id)
-        return status.HTTP_204_NO_CONTENT
+        success = delete_tenant(tenant_id)
     except Exception as e:
         logger.error(f"Failed to delete tenant {tenant_id}: {e}")
         raise HTTPException(status_code=400, detail="Failed to delete user")
+    if not success:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    return status.HTTP_204_NO_CONTENT
