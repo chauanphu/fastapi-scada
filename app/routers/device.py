@@ -128,8 +128,10 @@ def schedule(current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Ro
 def delete(
     _: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))],
     device_id: str):
-    
-    result = delete_device(device_id)
-    if result:
+    try:
+        success = delete_device(device_id)
+    except HTTPException as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    if success:
         return status.HTTP_200_OK
     raise HTTPException(status_code=400, detail="Failed to delete device")
