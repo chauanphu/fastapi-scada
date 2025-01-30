@@ -42,6 +42,8 @@ def read_audit_logs(
             
         audit_collection = get_audit_collection(tenant_id)
         results = audit_collection.find(query)
+        if results is None:
+            return []
         # The results is in UTC+0, convert and offset to local timezone
         results = [result for result in results]
         for result in results:
