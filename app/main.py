@@ -49,7 +49,7 @@ app.include_router(api_router)
     
 origins = [FRONTEND_ENDPOINT]
 if DEBUG:
-    origins.append("http://localhost:3000")
+    origins.extend(["http://localhost:3000", "http://localhost:8000", "http://localhost:8080", "http://localhost:80", "http://localhost:5173"])
 
 app.add_middleware(
     CORSMiddleware,
