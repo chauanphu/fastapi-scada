@@ -96,7 +96,9 @@ def process_data(data: SensorFull, tenant_id: str):
     try:
         alert = Alert(data)
         state, severity = alert.check_status()
+        redis = get_redis_connection()
         if severity == AlertSeverity.NORMAL:
+            redis.set("state:" + data.device_id, state.name)
             return
         current_state = get_cached_alert(data.device_id)
         # If the current state is not the same as the new state, update the alert
@@ -111,7 +113,6 @@ def process_data(data: SensorFull, tenant_id: str):
             alert_collection = get_alerts_collection(tenant_id)
             alert_collection.insert_one(new_alert.model_dump())
             # Cache the new state
-            redis = get_redis_connection()
             redis.set("state:" + data.device_id, state.name)
             # Convert to AlertModelFull
             full_alert = AlertModelFull(**new_alert.model_dump(), mac=data.mac, tenant_id=tenant_id)
