@@ -38,9 +38,6 @@ def read_device_by_mac(mac: str) -> Device | None:
             return Device(**device)
     device = device_collection.find_one({"mac": mac})
     if device:
-        device = Device(**device)
-        device_data = device.model_dump_json()
-        redis.set(f"device:{mac}", device_data, ex=3600)
         return device
     return None
 

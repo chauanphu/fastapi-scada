@@ -38,6 +38,9 @@ def create_tenant_db(tenant_id: str) -> Collection:
         IndexModel([("metadata.device_id", 1), ("timestamp", 1)], name="mac_timestamp_idx")
     ])
 
+def delete_tenant_db(tenant_id: str):
+    client.drop_database("tenant_" + tenant_id)
+
 def get_tenant_db(tenant_id: str) -> Collection:
     return client["tenant_" + tenant_id]
 

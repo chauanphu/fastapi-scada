@@ -1,4 +1,4 @@
-from database.mongo import tenant_collection, create_tenant_db
+from database.mongo import delete_tenant_db, tenant_collection, create_tenant_db
 from models.tenant import TenantCreate, Tenant
 import bson
 
@@ -32,4 +32,5 @@ def delete_tenant(tenant_id: str):
     result = tenant_collection.find_one_and_delete({"_id": bson.ObjectId(tenant_id)})
     if not result:
         return False
+    delete_tenant_db(tenant_id)
     return True
