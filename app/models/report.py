@@ -20,6 +20,7 @@ class SensorModel(BaseModel):
     power: float
     power_factor: float
     total_energy: float
+    energy_meter: float
     toggle: bool
 
 class SensorFull(SensorModel):

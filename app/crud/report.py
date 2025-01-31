@@ -13,9 +13,9 @@ local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
 def cache_unknown_device(mac: str) -> None:
     redis = get_redis_connection()
-    # Store as member of the set unknown_devices with expiration of 1 day
+    # Store as member of the set unknown_devices with expiration of 1 minute
     redis.sadd("unknown_devices", mac)
-    redis.expire("unknown_devices", 86400)
+    redis.expire("unknown_devices", 60)
 
 def create_sensor_data(data: dict) -> str:
     # Check if the device exists in the database

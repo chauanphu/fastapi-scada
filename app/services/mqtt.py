@@ -41,7 +41,8 @@ class Client(mqtt_client.Client):
             payload["timestamp"] = get_tz_datetime(payload["time"])
             payload.pop("time")
             payload["mac"] = mac
-            payload["total_energy"] = (payload["power"] / 1000 / 720) * payload["power_factor"]
+            payload["energy_meter"] = payload["total_energy"]
+            payload["total_energy"] = (payload["power"] / 1000 / 360) * payload["power_factor"] # energy consumption every 10 seconds
             # Insert data to MongoDB
             create_sensor_data(payload)
 

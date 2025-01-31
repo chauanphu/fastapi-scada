@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Annotated, Optional
 from datetime import datetime
 
@@ -13,17 +14,18 @@ router = APIRouter(
     tags=["report"]
 )
 
+class Aggregation(str, Enum):
+    monthly = "monthly"
+    daily = "daily"
+    hourly = "hourly"
+
 @router.get("/", response_model=list[EnergyReportResponse])
 async def get_energy_report(
     current_user: Annotated[bool, Depends(RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN, Role.MONITOR]))],
     device_id: str,
     start_date: Optional[datetime] = Query(None, example="2023-07-01T00:00:00Z"),
     end_date: Optional[datetime] = Query(None, example="2023-12-31T23:59:59Z"),
-    aggregation: Optional[str] = Query(
-        "hourly",
-        regex="^(monthly|daily|hourly)$",
-        description="Aggregation level: monthly, daily, or hourly",
-    ),
+    aggregation: Optional[Aggregation] = Query(Aggregation.hourly),
 ):
     """
     Flexible endpoint to query energy consumption report with time range and aggregation level.
@@ -36,5 +38,4 @@ async def get_energy_report(
         results = agg_hourly(current_user, device_id, start_date, end_date)
     else:
         raise HTTPException(status_code=400, detail="Invalid aggregation level")
-
     return results
