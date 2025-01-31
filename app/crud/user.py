@@ -1,7 +1,5 @@
-import json
-
 import bson
-from database.mongo import user_collection
+from database.mongo import user_collection, tenant_collection
 from models.user import AccountEdit, User as Account, AccountCreate
 from models.auth import User, Role
 import utils.auth as auth
@@ -43,6 +41,10 @@ def read_users(tenant_id: str = "") -> list[Account]:
         users = list(user_collection.find({"tenant_id": tenant_id}))
     else:
         users = list(user_collection.find())
+        for user in users:
+            if "tenant_id" in user:
+                tenant = tenant_collection.find_one({"_id": bson.ObjectId(user["tenant_id"])})
+                user["tenant"] = tenant
     if not users:
         return []
     return [Account(**user) for user in users]

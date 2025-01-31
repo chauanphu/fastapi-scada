@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm  
   
 from utils.auth import create_token, authenticate_user
-from models.auth import Token  
+from models.auth import Role, Token  
 from utils.config import ACCESS_TOKEN_EXPIRE_MINUTES
 from utils.auth import get_current_active_user
 
@@ -32,3 +32,10 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
 @router.get("/validate/")
 async def validate_token(token: str = Depends(get_current_active_user)):
     return status.HTTP_200_OK
+
+@router.get("/roles/")
+async def get_roles(token: str = Depends(get_current_active_user)):
+    return [{
+        "role_id": role.value,
+        "role_name": role.name
+    } for role in Role if role != Role.SUPERADMIN]

@@ -6,13 +6,16 @@ from pydantic import BaseModel, Field, EmailStr
 from models.auth import Role
 from pydantic import model_validator
 
+from models.tenant import Tenant
+
 class User(BaseModel):
   id: Optional[ObjectId] | Optional[str] = Field(alias="_id", default=None)  
   username: str | None = None  
   email: EmailStr | None = None
   role: Role | None = None  
   disabled: bool| None = False  
-
+  tenant: Tenant | None = None
+  
   class Config:
     populate_by_name = True
     arbitrary_types_allowed = True
