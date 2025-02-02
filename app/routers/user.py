@@ -12,7 +12,7 @@ from crud.audit import append_audit_log
 
 router = APIRouter(
     prefix="/users",
-    tags=["users", "tenants"]
+    tags=["users"]
 )
 
 @router.get("/", response_model=list[Account])
