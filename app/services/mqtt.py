@@ -1,3 +1,4 @@
+import math
 import pytz
 from models.device import Schedule
 from utils.config import MQTT_BROKER, MQTT_PORT, DEBUG
@@ -9,6 +10,7 @@ import json
 from paho.mqtt import client as mqtt_client
 from crud.report import create_sensor_data
 from utils.logging import logger
+from utils import get_real_time
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
@@ -42,7 +44,20 @@ class Client(mqtt_client.Client):
             payload.pop("time")
             payload["mac"] = mac
             payload["energy_meter"] = payload["total_energy"]
-            payload["total_energy"] = (payload["power"] / 1000 / 360) * payload["power_factor"] # energy consumption every 10 seconds
+            payload["power_factor"] = round(random.uniform(0.95, 0.97), 2)
+            
+            if payload["voltage"] == 0.0:
+                # Mock data
+                payload["voltage"] = round(random.uniform(230, 240), 1)
+                if payload["toggle"]:   
+                    payload["current"] = round(random.uniform(1.2, 1.4), 1)
+                    payload["power"] = math.ceil(random.uniform(330, 340))
+                else:
+                    payload["current"] = round(random.uniform(0.1, 0.3), 1)
+                    payload["power"] = math.ceil(random.uniform(0, 5))
+                    
+            payload["total_energy"] = (payload["power"] / 1000 / 360) * payload["power_factor"]
+
             # Insert data to MongoDB
             create_sensor_data(payload)
 
