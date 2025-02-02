@@ -18,6 +18,14 @@ def add_new_firmware(contents, version, file_name) -> tuple[str, str]:
     file_id = fs.put(contents, filename=file_name, metadata=new_firmware.model_dump())
     return file_id, hash_val
 
+def check_firmware_exists(contents) -> bool:
+    # 2. Calculate hash (SHA-256 as an example)
+    hash_val = hashlib.sha256(contents).hexdigest()
+    # 3. Check if the hash exists in the DB
+    fs = get_fs()
+    file = fs.find_one({"metadata.hash_value": hash_val})
+    return file is not None
+
 def get_latest_firmware() -> GridOut:
     # 1. Get the latest firmware metadata
     fs = get_fs()

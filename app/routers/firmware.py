@@ -3,8 +3,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFil
 from models.auth import User
 
 from models.device import Device
+from models.firmware import MetaData
 from utils.auth import Role, RoleChecker
-from crud.firmware import add_new_firmware, get_firmware_by_version, get_latest_firmware, get_all_metadata as crud_get_all_metadata
+from crud.firmware import add_new_firmware, check_firmware_exists, get_firmware_by_version, get_latest_firmware, get_all_metadata as crud_get_all_metadata
 from crud.device import read_device
 from utils.logging import logger
 from services.mqtt import client
@@ -56,25 +57,35 @@ async def upload_firmware(
     file: UploadFile = File(...), 
     version: str = "0.1.0",
 ):
-    # Check file extension
-    if not file.filename.endswith('.bin'):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only .bin files are allowed."
-        )
+    try:
+        # Check file extension
+        if file.filename != "firmware.bin":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only firmware.bin files are allowed."
+            )
 
-    # 1. Read file in memory
-    contents = await file.read()
-    if not contents:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail="Empty file."
-        )
-
-    add_new_firmware(contents, version, file.filename)
-
-    # 5. Return info to the user
-    return status.HTTP_201_CREATED
+        # 1. Read file in memory
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Empty file."
+            )
+        # 2. Check if the firmware already exists
+        if check_firmware_exists(contents):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Exists firmware with the same hash."
+            )
+        add_new_firmware(contents, version, file.filename)
+        # 5. Return info to the user
+        return status.HTTP_201_CREATED
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Failed to upload firmware: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload firmware")
 
 # Get latest firmware
 @router.get("/")
@@ -114,6 +125,29 @@ async def get_all_metadata(current_user: Annotated[User, Depends(RoleChecker(all
     except Exception as e:
         logger.error(f"Failed to get firmware metadata: {e}")
         raise HTTPException(status_code=500, detail="Failed to get firmware metadata")
+
+# Get last firmware version
+@router.get("/latest/", response_model=MetaData)
+async def get_latest_firmware_version(current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))]):
+    try:
+        file = get_latest_firmware()
+        if not file:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No firmware found."
+            )
+        if "version" in file.metadata:
+            return MetaData(**file.metadata)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Firmware metadata is missing version."
+            )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Failed to get latest firmware version: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get latest firmware version")
 
 # Update device
 @router.put("/update/{device_id}")
