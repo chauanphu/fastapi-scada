@@ -38,7 +38,7 @@ def read_device_by_mac(mac: str) -> Device | None:
             return Device(**device)
     device = device_collection.find_one({"mac": mac})
     if device:
-        return device
+        return Device(**device)
     return None
 
 def read_devices(tenant_id: str = "") -> list[Device]:
@@ -71,11 +71,15 @@ def configure_device(current_user: User, device_id: str, device: DeviceConfigure
         {"$set": device_data},
         return_document=True
     )
+    if not updated:
+        raise HTTPException(status_code=400, detail="Failed to update device")
+    
+    updated = Device(**updated)
     # Update the device in Redis
     redis = get_redis_connection()
     if redis:
-        redis.set(f"device:{updated['mac']}", json.dumps(updated), ex=3600)
-    return Device(**updated)
+        redis.delete(f"device:{updated.mac}")
+    return updated
 
 def update_device(device_id: str, device: DeviceEdit) -> Device:
     device_id = bson.ObjectId(device_id)
@@ -88,7 +92,7 @@ def update_device(device_id: str, device: DeviceEdit) -> Device:
     # Update the device in Redis
     redis = get_redis_connection()
     if redis:
-        redis.set(f"device:{updated['mac']}", json.dumps(updated), ex=3600)
+        redis.delete(f"device:{updated['mac']}")
     return updated
 
 def delete_device(device_id: str) -> Device:

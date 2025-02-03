@@ -8,6 +8,7 @@ from utils.logging import logger
 def create_user(user: AccountCreate) -> Account:
     data = user.model_dump()
     data["hashed_password"] = auth.hash_password(user.password)
+    del data["password"]
     new_user = user_collection.insert_one(data)
     user = Account(
         _id=new_user.inserted_id,

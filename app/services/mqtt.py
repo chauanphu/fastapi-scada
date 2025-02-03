@@ -10,7 +10,6 @@ import json
 from paho.mqtt import client as mqtt_client
 from crud.report import create_sensor_data
 from utils.logging import logger
-from utils import get_real_time
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
