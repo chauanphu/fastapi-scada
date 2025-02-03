@@ -43,7 +43,9 @@ def read_users(tenant_id: str = "") -> list[Account]:
         users = list(user_collection.find())
         for user in users:
             if "tenant_id" in user:
-                tenant = tenant_collection.find_one({"_id": bson.ObjectId(user["tenant_id"])})
+                tenant = None
+                if bson.ObjectId.is_valid(user["tenant_id"]):
+                    tenant = tenant_collection.find_one({"_id": bson.ObjectId(user["tenant_id"])})
                 user["tenant"] = tenant
     if not users:
         return []

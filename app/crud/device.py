@@ -71,6 +71,10 @@ def configure_device(current_user: User, device_id: str, device: DeviceConfigure
         {"$set": device_data},
         return_document=True
     )
+    # Update the device in Redis
+    redis = get_redis_connection()
+    if redis:
+        redis.set(f"device:{updated['mac']}", json.dumps(updated), ex=3600)
     return Device(**updated)
 
 def update_device(device_id: str, device: DeviceEdit) -> Device:
@@ -81,6 +85,10 @@ def update_device(device_id: str, device: DeviceEdit) -> Device:
         {"$set": device_data},
         return_document=True
     )
+    # Update the device in Redis
+    redis = get_redis_connection()
+    if redis:
+        redis.set(f"device:{updated['mac']}", json.dumps(updated), ex=3600)
     return updated
 
 def delete_device(device_id: str) -> Device:

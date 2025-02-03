@@ -19,16 +19,24 @@ router = APIRouter(
 def get_users(
     current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN]))]
     ):
-    if current_user.role == Role.SUPERADMIN:
-        results = read_users()
-    else:
-        results = read_users(tenant_id=current_user.tenant_id)
-        audit = AuditLog(action=Action.READ, username=current_user.username, resource="tài khoản", role=current_user.role.value, detail="Xem danh sách tài khoản")
-        append_audit_log(audit, current_user.role, current_user.tenant_id)
-    # Exclude superadmin from the list
-    if current_user.role != Role.SUPERADMIN:
-        results = [user for user in results if user.role != Role.SUPERADMIN]
-    return results
+    try:
+        if current_user.role == Role.SUPERADMIN:
+            results = read_users()
+        else:
+            results = read_users(tenant_id=current_user.tenant_id)
+            audit = AuditLog(action=Action.READ, username=current_user.username, resource="tài khoản", role=current_user.role.value, detail="Xem danh sách tài khoản")
+            append_audit_log(audit, current_user.role, current_user.tenant_id)
+        # Exclude superadmin from the list
+        if current_user.role != Role.SUPERADMIN:
+            results = [user for user in results if user.role != Role.SUPERADMIN]
+        if results:
+            raise HTTPException(status_code=404, detail="No users found")
+        return results
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Failed to get users: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get users")
 
 @router.post("/", response_model=Account)
 def create_new_user(current_user: Annotated[
