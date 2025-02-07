@@ -29,8 +29,6 @@ def get_users(
         # Exclude superadmin from the list
         if current_user.role != Role.SUPERADMIN:
             results = [user for user in results if user.role != Role.SUPERADMIN]
-        if results:
-            raise HTTPException(status_code=404, detail="No users found")
         return results
     except HTTPException as e:
         raise e
