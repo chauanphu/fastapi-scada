@@ -200,15 +200,6 @@ async def websocket_monitor(websocket: WebSocket):
     is_super_admin = user.tenant_id is None
     try:
         await manager.connect(websocket, user.tenant_id, str(user.id), is_super_admin)
-        await alert.send_last_alert(websocket, user.tenant_id, str(user.id), is_super_admin)
-        signin_log = AuditLog(
-            action=Action.LOGIN,
-            username=user.username,
-            resource="hệ thống",
-            role=user.role,
-            detail="Đăng nhập"
-        )
-        append_audit_log(signin_log, role=user.role, tenant_id=user.tenant_id)
         
         while True:
             await websocket.receive_text()  # Maintain connection open
@@ -218,14 +209,6 @@ async def websocket_monitor(websocket: WebSocket):
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
     finally:
-        logout_log = AuditLog(
-            action=Action.LOGOUT,
-            username=user.username,
-            resource="hệ thống",
-            role=user.role,
-            detail="Đăng xuất"
-        )
-        append_audit_log(logout_log, role=user.role, tenant_id=user.tenant_id)
         await manager.disconnect(websocket, user.tenant_id, str(user.id), is_super_admin)
 
 @router.websocket("/alert/")
