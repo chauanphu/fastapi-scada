@@ -2,6 +2,7 @@
 from fastapi import APIRouter
 from .tenant import router as tenant_router
 from .auth import router as auth_router
+from .alert import router as alert_router
 from .audit import router as audit_router
 from .user import router as user_router
 from .device import router as device_router
@@ -18,4 +19,5 @@ api_router.include_router(device_router)
 api_router.include_router(report_router)
 api_router.include_router(websocket_router)
 api_router.include_router(firmware_router)
+api_router.include_router(alert_router)
 api_router.include_router(deprecated_router)

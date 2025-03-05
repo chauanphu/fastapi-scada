@@ -1,4 +1,5 @@
 # APPEND AND READ AUDIT LOGS
+import traceback
 from database.mongo import get_audit_collection
 from models.audit import AuditLog
 from models.auth import Role
@@ -61,4 +62,5 @@ def read_audit_logs(
         return total_count, [AuditLog(**result) for result in results]
     except Exception as e:
         logger.error(f"Error reading audit logs: {e}")
+        traceback.print_exc()
         return 0, []
