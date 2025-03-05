@@ -23,8 +23,10 @@ def read_audit_logs(
     action: str = None,
     resource: str = None,
     start: str = None,
-    end: str = None
-) -> list[AuditLog]:
+    end: str = None,
+    skip: int = 0,
+    limit: int = 100
+) -> tuple[int, list[AuditLog]]:
     try:
         query = {}
         if username:
@@ -41,14 +43,22 @@ def read_audit_logs(
             query["timestamp"] = {"$lte": end}
             
         audit_collection = get_audit_collection(tenant_id)
-        results = audit_collection.find(query)
+        
+        # Get total count for pagination metadata
+        total_count = audit_collection.count_documents(query)
+        
+        # Get paginated results sorted by timestamp descending (latest first)
+        results = audit_collection.find(query).sort("timestamp", -1).skip(skip).limit(limit)
+        
         if results is None:
-            return []
+            return 0, []
+        
         # The results is in UTC+0, convert and offset to local timezone
         results = [result for result in results]
         for result in results:
             result["timestamp"] = fix_offset(result["timestamp"])
-        return [AuditLog(**result) for result in results]
+        
+        return total_count, [AuditLog(**result) for result in results]
     except Exception as e:
         logger.error(f"Error reading audit logs: {e}")
-        return []
+        return 0, []
