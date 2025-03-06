@@ -9,6 +9,7 @@ import pytz
 from database.mongo import get_alerts_collection
 from database.redis import get_redis_connection
 from utils.logging import logger
+from services.cache_service import cache_service
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
@@ -74,9 +75,17 @@ class Alert:
             return DeviceState.DiSCONNECTED, AlertSeverity.CRITICAL
         
 def get_cached_alert(device_id: str) -> str:
+    """Get the device state from cache"""
+    device_data = cache_service.get_device_by_id(device_id)
+    if device_data and "state" in device_data:
+        return device_data["state"]
+    
+    # Fallback to legacy method
     redis = get_redis_connection()
-    cached_alert = redis.get("state:" + device_id) # Get UTF-8 string
-    return cached_alert.decode("utf-8") if cached_alert else ""
+    if redis:
+        cached_alert = redis.get("state:" + device_id)
+        return cached_alert.decode("utf-8") if cached_alert else ""
+    return ""
 
 # Pub/sub latest alert message
 def subscribe_alert():
@@ -96,27 +105,33 @@ def process_data(data: SensorFull, tenant_id: str):
     try:
         alert = Alert(data)
         state, severity = alert.check_status()
-        redis = get_redis_connection()
+        
+        # Update the device state in the cache
+        device_id = data.device_id
+        mac = data.mac
+        
+        # Update the device state in the cache
+        # Note: update_device_with_sensor_data already adds a timestamp
+        cache_service.update_device_state(device_id, mac, state.name)
+        
         if severity == AlertSeverity.NORMAL:
-            redis.set("state:" + data.device_id, state.name)
             return
-        current_state = get_cached_alert(data.device_id)
+            
+        current_state = get_cached_alert(device_id)
         # If the current state is not the same as the new state, update the alert
         if current_state != state.name or not current_state:
             new_alert = AlertModel(
                 state=state,
-                device=data.device_id,
+                device=device_id,
                 device_name=data.device_name,
                 timestamp=alert.current_time,
                 severity=severity
             )
             alert_collection = get_alerts_collection(tenant_id)
             alert_collection.insert_one(new_alert.model_dump())
-            # Cache the new state
-            redis.set("state:" + data.device_id, state.name)
+
             # Convert to AlertModelFull
             full_alert = AlertModelFull(**new_alert.model_dump(), mac=data.mac, tenant_id=tenant_id)
-
             publish_alert(full_alert, tenant_id)
 
     except Exception as e:

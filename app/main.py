@@ -8,6 +8,10 @@ from database.mongo import get_users_collection
 from utils.auth import hash_password
 from utils.config import SUPERADMIN_USERNAME, SUPERADMIN_PASSWORD, SUPERADMIN_EMAIL, FRONTEND_ENDPOINT, DEBUG
 from utils.logging import logger
+from services.cache_service import cache_service
+from services.mqtt import client
+from background_tasks import check_idle_devices_task
+import asyncio
 
 from models.auth import Role
 from services.mqtt import client
@@ -32,7 +36,21 @@ async def lifespan(app: FastAPI):
         # Start MQTT client
         client.connect()
         client.loop_start()
+        count = cache_service.initialize_device_cache()
+        print(f"Initialized cache with {count} devices")
+        
+        # Start background task for idle device checking
+        idle_task = asyncio.create_task(check_idle_devices_task())
+        
         yield
+        
+        # Clean up background task
+        idle_task.cancel()
+        try:
+            await idle_task
+        except asyncio.CancelledError:
+            pass
+            
     finally:
         mongo.client.close()
         client.disconnect()

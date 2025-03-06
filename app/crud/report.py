@@ -8,6 +8,7 @@ from services.alert import process_data
 import json
 import pytz
 from crud.device import verify_owner
+from services.cache_service import cache_service
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
@@ -33,30 +34,29 @@ def create_sensor_data(data: dict) -> str:
     cached_data.update(data)
     sensor_data = SensorModel(**cached_data)
     device_data: SensorFull = SensorFull(**cached_data) # Enforce the model schema
+    
     # Insert the sensor data to the database
     sensor_collection = get_sensors_collection(tenant_id)
     sensor = sensor_collection.insert_one(sensor_data.model_dump())
-
+    
+    # Update the device cache with sensor data
+    cache_service.update_device_with_sensor_data(device_data.model_dump())
+    
     # Process the data for alerting
     process_data(device_data, tenant_id)
-
-    # Update the device data in the cache
-    redis = get_redis_connection()
-    if redis:
-        # Check if the device exists in the cache
-        redis.set(f"device:{data['mac']}", device_data.model_dump_json())
 
     return sensor.inserted_id
 
 def mac2device(mac: str) -> dict:
-    # Check if the device exists in the cache: device:mac -> id
-    redis = get_redis_connection()
-    if redis:
-        device = redis.get(f"device:{mac}")
-        if device:
-            device = json.loads(device)
-            return device
-    # Check if the device exists in the database
+    # Check if the device exists in the cache
+    device = cache_service.get_device_by_mac(mac)
+    if device:
+        # Ensure device_id and device_name are set properly
+        device["device_id"] = str(device["_id"])
+        device["device_name"] = device["name"]
+        return device
+        
+    # Fallback to database
     device = device_collection.find_one({"mac": mac})
     if device:
         # Convert ObjectId to string
@@ -64,18 +64,26 @@ def mac2device(mac: str) -> dict:
         device["device_name"] = device["name"]
         del device["_id"]
         del device["name"]
+        # Cache the device for future use
+        cache_service.set_device(Device(**device))
         return device
     return None
 
 def get_cache_status() -> list[SensorFull]:
+    devices = []
     redis = get_redis_connection()
     if redis:
-        keys: list[str] = redis.keys("device:*")
+        keys = redis.keys(f"device:*")
         if not keys:
             return []
-        devices = redis.mget(keys)
-        return [SensorFull(**json.loads(device)) for device in devices]
-    return None
+        device_data = redis.mget(keys)
+        for data in device_data:
+            if data:
+                try:
+                    devices.append(SensorFull(**json.loads(data)))
+                except Exception:
+                    pass
+    return devices
 
 def agg_monthly(current_user: User, device_id: str, start_date: datetime = None, end_date: datetime = None):
     device: Device = verify_owner(current_user, device_id)

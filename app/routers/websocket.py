@@ -1,14 +1,13 @@
 # Websocket endpoint for real-time monitoring
 from contextlib import asynccontextmanager
 import json
-from typing import List, Optional, Tuple
+from typing import Optional, Tuple
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
 import asyncio
-from models.audit import Action
 from models.auth import User
 from fastapi import APIRouter
-from crud.report import get_cache_status
 from services.alert import subscribe_alert
+from services.cache_service import cache_service
 from utils.auth import validate_ws_token
 from utils.logging import logger
 from redis.client import PubSub
@@ -60,15 +59,27 @@ class ConnectionManager:
                 if not self.active_connections and not self.superAdmin_connections:
                     await asyncio.sleep(5)
                     continue
-                data = get_cache_status()
-                if not data:
+                
+                # Get devices with states already included in the device data
+                devices = cache_service.get_devices_with_states()
+                if not devices:
                     await asyncio.sleep(5)
                     continue
+                
+                # Process device data by tenant
                 data_by_tenant = defaultdict(list)
-                for d in data:
-                    data_by_tenant[d.tenant_id].append(d.model_dump_json())
-                for tenant_id, devices in data_by_tenant.items():
-                    await self.broadcast(json.dumps(devices), tenant_id)
+                
+                for device_data in devices:
+                    tenant_id = device_data.get("tenant_id", "")
+                    if tenant_id:
+                        # Add the device data directly to the tenant's list
+                        data_by_tenant[tenant_id].append(device_data)
+                
+                # Broadcast data to each tenant
+                for tenant_id, tenant_devices in data_by_tenant.items():
+                    # Convert the whole list to JSON at once
+                    await self.broadcast(json.dumps(tenant_devices), tenant_id)
+                
                 await asyncio.sleep(5)
             except Exception as e:
                 logger.error(f"Error in broadcast_data loop: {e}")

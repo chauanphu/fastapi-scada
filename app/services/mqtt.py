@@ -64,7 +64,7 @@ class Client(mqtt_client.Client):
             logger.error(f"Failed to parse data from {mac}: {e}")
             return 
 
-    def handle_connection(self, unit_id: int, payload):
+    def handle_connection(self, mac: str, payload):
         pass
 
     def toggle_device(self, mac, state: bool):

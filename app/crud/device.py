@@ -1,12 +1,9 @@
-import json
-
 import bson
 from fastapi import HTTPException
 from database.mongo import device_collection
-from database.redis import get_redis_connection
 from models.auth import Role, User
 from models.device import DeviceCreate, DeviceConfigure, Device, DeviceEdit
-import bson
+from services.cache_service import cache_service
 
 def create_device(device: DeviceCreate) -> Device:
     new_device = device_collection.insert_one(device.model_dump())
@@ -14,31 +11,36 @@ def create_device(device: DeviceCreate) -> Device:
         _id=new_device.inserted_id,
         **device.model_dump()
     )
+    # Cache the new device
+    cache_service.set_device(device)
     return device
 
 def read_device(device_id: str) -> Device | None:
-    redis = get_redis_connection()
-    if redis:
-        mac: bytes = redis.get("id_mac:" + device_id)
-        if mac:
-            return read_device_by_mac(mac.decode())
-
+    # Try to get from cache first
+    cached_device = cache_service.get_device_by_id(device_id)
+    if cached_device:
+        return Device(**cached_device)
+        
+    # Fallback to database
     device = device_collection.find_one({"_id": bson.ObjectId(device_id)})
     if device:
-        redis.set("id_mac:" + device_id, device["mac"], ex=3600)
-        return Device(**device)
+        device_obj = Device(**device)
+        cache_service.set_device(device_obj)
+        return device_obj
     return None
 
 def read_device_by_mac(mac: str) -> Device | None:
-    redis = get_redis_connection()
-    if redis:
-        device = redis.get(f"device:{mac}")
-        if device:
-            device = json.loads(device)
-            return Device(**device)
+    # Try to get from cache first
+    cached_device = cache_service.get_device_by_mac(mac)
+    if cached_device:
+        return Device(**cached_device)
+        
+    # Fallback to database
     device = device_collection.find_one({"mac": mac})
     if device:
-        return Device(**device)
+        device_obj = Device(**device)
+        cache_service.set_device(device_obj)
+        return device_obj
     return None
 
 def read_devices(tenant_id: str = "") -> list[Device]:
@@ -75,10 +77,8 @@ def configure_device(current_user: User, device_id: str, device: DeviceConfigure
         raise HTTPException(status_code=400, detail="Failed to update device")
     
     updated = Device(**updated)
-    # Update the device in Redis
-    redis = get_redis_connection()
-    if redis:
-        redis.delete(f"device:{updated.mac}")
+    # Update device in cache
+    cache_service.update_device_in_cache(updated)
     return updated
 
 def update_device(device_id: str, device: DeviceEdit) -> Device:
@@ -89,16 +89,16 @@ def update_device(device_id: str, device: DeviceEdit) -> Device:
         {"$set": device_data},
         return_document=True
     )
-    # Update the device in Redis
-    redis = get_redis_connection()
-    if redis:
-        redis.delete(f"device:{updated['mac']}")
+    # Update the device in cache
+    if updated:
+        device_obj = Device(**updated)
+        cache_service.update_device_in_cache(device_obj)
     return updated
 
 def delete_device(device_id: str) -> Device:
-    redis = get_redis_connection()
     device_id = bson.ObjectId(device_id)
     deleted = device_collection.find_one_and_delete({"_id": device_id})
-    if redis:
-        redis.delete(f"device:{deleted['mac']}")
+    if deleted:
+        device_obj = Device(**deleted)
+        cache_service.delete_device(device_obj)
     return deleted
