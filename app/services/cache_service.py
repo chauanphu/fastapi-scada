@@ -19,7 +19,7 @@ class CacheService:
         self.ID_MAC_KEY_PREFIX = "id_mac:"
         self.STATE_KEY_PREFIX = "state:"  # Legacy, for backward compatibility
         self.DEVICE_TTL = 3600  # 1 hour cache expiry
-        self.IDLE_TIMEOUT = 300  # 5 minutes threshold for disconnected status
+        self.IDLE_TIMEOUT = 20  # 5 minutes threshold for disconnected status
     
     def is_available(self) -> bool:
         """Check if Redis is available"""
@@ -289,58 +289,5 @@ class CacheService:
             logger.error(f"Error updating device with sensor data: {e}")
             return False
     
-    def check_idle_devices(self) -> int:
-        """
-        Check all devices and mark as disconnected if they've been idle for too long
-        Returns the number of devices marked as disconnected
-        """
-        if not self.is_available():
-            return 0
-            
-        try:
-            # Get all device keys
-            device_keys = self.redis.keys(f"{self.DEVICE_KEY_PREFIX}*")
-            if not device_keys:
-                return 0
-                
-            # Current timestamp for comparison
-            current_time = get_real_time().timestamp()
-            disconnected_count = 0
-            
-            # Check each device
-            for key in device_keys:
-                try:
-                    device_data = json.loads(self.redis.get(key))
-                    
-                    # Skip devices that are already marked as disconnected
-                    if device_data.get("state") == DeviceState.DISCONNECTED.value:
-                        continue
-                    
-                    # If the device has been idle for too long or no last_seen timestamp
-                    last_seen = device_data.get("last_seen")
-                    if not last_seen or (current_time - last_seen) > self.IDLE_TIMEOUT:
-                        # Mark as disconnected
-                        device_data["state"] = DeviceState.DISCONNECTED.value
-                        
-                        # Update device in cache
-                        self.redis.set(key, json.dumps(device_data), ex=self.DEVICE_TTL)
-                        
-                        # Also update legacy state key
-                        device_id = str(device_data.get("_id", ""))
-                        if device_id:
-                            self.redis.set(f"{self.STATE_KEY_PREFIX}{device_id}", DeviceState.DISCONNECTED.value)
-                            
-                        disconnected_count += 1
-                        logger.info(f"Device {device_data.get('name', key.decode().split(':')[-1])} marked as disconnected due to inactivity")
-                        
-                except Exception as e:
-                    logger.error(f"Error processing device {key}: {e}")
-                    continue
-                    
-            return disconnected_count
-        except Exception as e:
-            logger.error(f"Error checking for idle devices: {e}")
-            return 0
-
 # Create a singleton instance
 cache_service = CacheService()

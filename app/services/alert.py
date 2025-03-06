@@ -2,12 +2,14 @@
 ## Alert Service
 This service is responsible for checking the status of the device and generating alerts based on the status.
 """
+import json
 from models.report import SensorFull
 from models.alert import AlertModel, AlertModelFull, DeviceState, AlertSeverity
 from datetime import datetime, timedelta
 import pytz
 from database.mongo import get_alerts_collection
 from database.redis import get_redis_connection
+from utils import get_real_time
 from utils.logging import logger
 from services.cache_service import cache_service
 
@@ -137,3 +139,66 @@ def process_data(data: SensorFull, tenant_id: str):
     except Exception as e:
         logger.error(f"Failed to process alert data: {e}")
         return
+
+def check_idle_devices() -> int:
+    """
+    Check all devices and mark as disconnected if they've been idle for too long
+    Returns the number of devices marked as disconnected
+    """
+    if not cache_service.is_available():
+        return 0
+        
+    try:
+        # Get all device keys
+        device_keys = cache_service.redis.keys(f"{cache_service.DEVICE_KEY_PREFIX}*")
+        if not device_keys:
+            return 0
+            
+        # Current timestamp for comparison
+        current_time = get_real_time().timestamp()
+        disconnected_count = 0
+        
+        # Check each device
+        for key in device_keys:
+            try:
+                device_data = json.loads(cache_service.redis.get(key))
+                
+                # Skip devices that are already marked as disconnected
+                if device_data.get("state") == DeviceState.DISCONNECTED.value:
+                    continue
+                
+                # If the device has been idle for too long or no last_seen timestamp
+                last_seen = device_data.get("last_seen")
+                if not last_seen or (current_time - last_seen) > cache_service.IDLE_TIMEOUT:
+                    # Mark as disconnected
+                    device_data["state"] = DeviceState.DISCONNECTED.value
+                    
+                    # Update device in cache
+                    cache_service.redis.set(key, json.dumps(device_data), ex=cache_service.DEVICE_TTL)
+                    # Add new alert to the database
+                    new_alert = AlertModel(
+                        state=DeviceState.DISCONNECTED,
+                        device=device_data.get("_id", ""),
+                        device_name=device_data.get("name", ""),
+                        timestamp=current_time,
+                        severity=AlertSeverity.CRITICAL
+                    )
+                    alert_collection = get_alerts_collection(device_data.get("tenant_id", ""))
+                    alert_collection.insert_one(new_alert.model_dump())
+
+                    # Also update legacy state key
+                    device_id = str(device_data.get("_id", ""))
+                    if device_id:
+                        cache_service.redis.set(f"{cache_service.STATE_KEY_PREFIX}{device_id}", DeviceState.DISCONNECTED.value)
+                        
+                    disconnected_count += 1
+                    logger.info(f"Device {device_data.get('name', key.decode().split(':')[-1])} marked as disconnected due to inactivity")
+                    
+            except Exception as e:
+                logger.error(f"Error processing device {key}: {e}")
+                continue
+                
+        return disconnected_count
+    except Exception as e:
+        logger.error(f"Error checking for idle devices: {e}")
+        return 0

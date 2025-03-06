@@ -4,8 +4,7 @@ Background tasks for the SCADA system.
 import asyncio
 import time
 from datetime import datetime
-from services.cache_service import cache_service
-from models.alert import DeviceState
+from services.alert import check_idle_devices
 from utils.logging import logger
 
 async def check_idle_devices_task():
@@ -16,7 +15,7 @@ async def check_idle_devices_task():
         try:
             # Check for idle devices every minute
             start_time = time.time()
-            count = cache_service.check_idle_devices()
+            count = check_idle_devices()
             if count > 0:
                 logger.info(f"Marked {count} devices as disconnected at {datetime.now()}")
             end_time = time.time()
