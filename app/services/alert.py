@@ -114,7 +114,7 @@ def process_data(data: SensorFull, tenant_id: str):
         
         # Update the device state in the cache
         # Note: update_device_with_sensor_data already adds a timestamp
-        cache_service.update_device_state(device_id, mac, state.name)
+        cache_service.update_device_state(device_id, mac, state.value)
         
         if severity == AlertSeverity.NORMAL:
             return

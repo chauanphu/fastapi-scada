@@ -78,7 +78,7 @@ def configure_device(current_user: User, device_id: str, device: DeviceConfigure
     
     updated = Device(**updated)
     # Update device in cache
-    cache_service.update_device_in_cache(updated)
+    cache_service.set_device(updated)
     return updated
 
 def update_device(device_id: str, device: DeviceEdit) -> Device:
@@ -92,7 +92,7 @@ def update_device(device_id: str, device: DeviceEdit) -> Device:
     # Update the device in cache
     if updated:
         device_obj = Device(**updated)
-        cache_service.update_device_in_cache(device_obj)
+        cache_service.set_device(device_obj)
     return updated
 
 def delete_device(device_id: str) -> Device:

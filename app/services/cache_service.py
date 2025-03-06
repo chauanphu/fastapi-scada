@@ -206,10 +206,6 @@ class CacheService:
         except Exception as e:
             logger.error(f"Error initializing device cache: {e}")
             return 0
-            
-    def update_device_in_cache(self, device: Device) -> bool:
-        """Update device information in cache"""
-        return self.set_device(device)
     
     def get_devices_with_states(self) -> List[Dict[str, Any]]:
         """Get all devices with their states from cache"""
