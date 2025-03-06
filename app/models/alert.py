@@ -29,7 +29,7 @@ class DeviceState(str, Enum):
     OFF = "Thiết bị tắt"
     
     # Sensor, Critical
-    DiSCONNECTED = "Mất kết nối"
+    DISCONNECTED = "Mất kết nối"
     POWER_LOST = "Mất điện / Không đọc được công tơ"
     STILL_ON = "Thiết bị vẫn hoạt động"
     

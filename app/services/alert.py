@@ -72,7 +72,7 @@ class Alert:
             else:
                 return DeviceState.WORKING, AlertSeverity.NORMAL
         else: 
-            return DeviceState.DiSCONNECTED, AlertSeverity.CRITICAL
+            return DeviceState.DISCONNECTED, AlertSeverity.CRITICAL
         
 def get_cached_alert(device_id: str) -> str:
     """Get the device state from cache"""

@@ -313,14 +313,14 @@ class CacheService:
                     device_data = json.loads(self.redis.get(key))
                     
                     # Skip devices that are already marked as disconnected
-                    if device_data.get("state") == DeviceState.DiSCONNECTED.value:
+                    if device_data.get("state") == DeviceState.DISCONNECTED.value:
                         continue
                     
                     # If the device has been idle for too long or no last_seen timestamp
                     last_seen = device_data.get("last_seen")
                     if not last_seen or (current_time - last_seen) > self.IDLE_TIMEOUT:
                         # Mark as disconnected
-                        device_data["state"] = DeviceState.DiSCONNECTED.value
+                        device_data["state"] = DeviceState.DISCONNECTED.value
                         
                         # Update device in cache
                         self.redis.set(key, json.dumps(device_data), ex=self.DEVICE_TTL)
@@ -328,7 +328,7 @@ class CacheService:
                         # Also update legacy state key
                         device_id = str(device_data.get("_id", ""))
                         if device_id:
-                            self.redis.set(f"{self.STATE_KEY_PREFIX}{device_id}", DeviceState.DiSCONNECTED.name)
+                            self.redis.set(f"{self.STATE_KEY_PREFIX}{device_id}", DeviceState.DISCONNECTED.value)
                             
                         disconnected_count += 1
                         logger.info(f"Device {device_data.get('name', key.decode().split(':')[-1])} marked as disconnected due to inactivity")
