@@ -3,9 +3,9 @@ Background tasks for the SCADA system.
 """
 import asyncio
 import time
-from datetime import datetime
 from services.alert import check_idle_devices
 from utils.logging import logger
+from utils import get_real_time
 
 async def check_idle_devices_task():
     """
@@ -17,12 +17,13 @@ async def check_idle_devices_task():
             start_time = time.time()
             count = check_idle_devices()
             if count > 0:
-                logger.info(f"Marked {count} devices as disconnected at {datetime.now()}")
+                logger.info(f"Marked {count} devices as disconnected at {get_real_time().isoformat()}")
             end_time = time.time()
             
             # Calculate how long to wait before the next check
             # We want to run approximately once a minute
-            wait_time = max(60 - (end_time - start_time), 0)
+            execution_time = end_time - start_time
+            wait_time = max(60 - execution_time, 5)  # Minimum 5 seconds between checks
             
             await asyncio.sleep(wait_time)
         except Exception as e:

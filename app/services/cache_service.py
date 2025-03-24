@@ -18,8 +18,8 @@ class CacheService:
         self.DEVICE_KEY_PREFIX = "device:"
         self.ID_MAC_KEY_PREFIX = "id_mac:"
         self.STATE_KEY_PREFIX = "state:"  # Legacy, for backward compatibility
-        self.DEVICE_TTL = 3600  # 1 hour cache expiry
-        self.IDLE_TIMEOUT = 20  # 5 minutes threshold for disconnected status
+        self.DEVICE_TTL = 60  # 1 hour cache expiry
+        self.IDLE_TIMEOUT = 60  # 1 minute threshold for disconnected status (changed from 20)
     
     def is_available(self) -> bool:
         """Check if Redis is available"""
@@ -85,10 +85,17 @@ class CacheService:
             device_data = self.get_device_by_mac(mac)
             if not device_data:
                 # If device isn't in cache, we can't update its state
-                logger.warning(f"Cannot update state for device not in cache: {mac}")
+                # logger.warning(f"Cannot update state for device not in cache: {mac}")
                 # Still set the legacy state key for backward compatibility
                 self.redis.set(f"{self.STATE_KEY_PREFIX}{device_id}", state)
                 return False
+            
+            # Check if we're changing from DISCONNECTED to another state
+            previous_state = device_data.get("state", "")
+            if previous_state == DeviceState.DISCONNECTED.value and state != DeviceState.DISCONNECTED.value:
+                # Update the last_seen timestamp to prevent immediate disconnection
+                device_data["last_seen"] = get_real_time().timestamp()
+                logger.info(f"Device {mac} reconnected, state changed from {previous_state} to {state}")
             
             # Update the state in the device data
             device_data["state"] = state
@@ -271,6 +278,10 @@ class CacheService:
             
             # Preserve state if it exists
             if "state" not in device_data:
+                device_data["state"] = ""
+            # If current state is DISCONNECTED, change it to empty state
+            # so it can be updated by the status manager
+            elif device_data["state"] == DeviceState.DISCONNECTED.value:
                 device_data["state"] = ""
                 
             # Store updated device data

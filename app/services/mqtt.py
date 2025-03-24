@@ -10,10 +10,13 @@ import json
 from paho.mqtt import client as mqtt_client
 from crud.report import create_sensor_data
 from utils.logging import logger
+from services.cache_service import cache_service
+from services.alert import process_data
+from models.report import SensorFull
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
-def get_tz_datetime(timestamp: int | None = None) -> int:
+def get_tz_datetime(timestamp: int | None = None) -> datetime:
     if not timestamp:
         # Get current time
         return datetime.now(pytz.UTC).astimezone(local_tz)
@@ -28,7 +31,6 @@ class Client(mqtt_client.Client):
         super().__init__(mqtt_client.CallbackAPIVersion.VERSION2, client_id=self.ID)
         self.HOST = MQTT_BROKER
         self.PORT = MQTT_PORT
-        # self.ID = "monitoring-service" + str(random.randint(0, 1000))
         logger.info(f"Connecting to MQTT Broker: {self.HOST}:{self.PORT}")
         self.ttl = 60 * 5 # 5 minutes
 
@@ -59,10 +61,39 @@ class Client(mqtt_client.Client):
 
             # Insert data to MongoDB
             create_sensor_data(payload)
+            
+            # Process the device status and update cache
+            self.process_device_status(mac, payload)
 
         except Exception as e:
             logger.error(f"Failed to parse data from {mac}: {e}")
-            return 
+            return
+    
+    def process_device_status(self, mac: str, payload: dict):
+        """Process device status update and update cache/alerts"""
+        try:
+            # Get device info from cache
+            device_info = cache_service.get_device_by_mac(mac)
+            
+            if not device_info:
+                # logger.warning(f"Device with MAC {mac} not found in cache, cannot update status")
+                return
+                
+            # Update device in cache with latest data
+            cache_service.update_device_with_sensor_data(payload)
+            
+            # Create a SensorFull object for status determination
+            device_data = {**device_info, **payload}
+            sensor_full = SensorFull(**device_data)
+            
+            # Process alert and status
+            if "tenant_id" in device_info:
+                process_data(sensor_full, device_info["tenant_id"])
+            else:
+                logger.warning(f"Device {mac} has no tenant_id, cannot process alerts")
+                
+        except Exception as e:
+            logger.error(f"Error processing device status for {mac}: {e}")
 
     def handle_connection(self, mac: str, payload):
         pass

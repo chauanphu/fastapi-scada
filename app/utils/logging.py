@@ -13,7 +13,7 @@ logging.basicConfig(
     level=logging.DEBUG,  # Capture all levels: DEBUG and above
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Log message format
     handlers=[
-        logging.FileHandler(f"logs/{file_name}"),  # Log to a file named 'app.log'
+        # logging.FileHandler(f"logs/{file_name}"),  # Log to a file named 'app.log'
         logging.StreamHandler()  # Also log to the console
     ]
 )
