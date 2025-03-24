@@ -104,7 +104,6 @@ class CacheService:
             self.redis.set(
                 f"{self.DEVICE_KEY_PREFIX}{mac}", 
                 json.dumps(device_data),
-                ex=self.DEVICE_TTL
             )
             
             # Also update the legacy state key for backward compatibility
@@ -138,14 +137,12 @@ class CacheService:
             self.redis.set(
                 f"{self.DEVICE_KEY_PREFIX}{mac}", 
                 json.dumps(device_data),
-                ex=self.DEVICE_TTL
             )
             
             # Store mapping from device_id to MAC
             self.redis.set(
                 f"{self.ID_MAC_KEY_PREFIX}{device_id}", 
                 mac,
-                ex=self.DEVICE_TTL
             )
             
             return True
@@ -288,7 +285,6 @@ class CacheService:
             self.redis.set(
                 f"{self.DEVICE_KEY_PREFIX}{mac}",
                 json.dumps(jsonable_encoder(device_data)),
-                ex=self.DEVICE_TTL
             )
             
             return True
