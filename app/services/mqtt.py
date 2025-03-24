@@ -99,6 +99,8 @@ class Client(mqtt_client.Client):
         pass
 
     def toggle_device(self, mac, state: bool):
+        self.set_auto(mac, False)
+        
         topic = f"unit/{mac}/command"
         body = {
             "command": "TOGGLE",
@@ -109,6 +111,7 @@ class Client(mqtt_client.Client):
             print("Body", body)
         else:
             self.publish(topic, json.dumps(body))
+        
 
     def set_auto(self, mac, state: bool):
         topic = f"unit/{mac}/command"
