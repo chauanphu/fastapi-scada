@@ -64,9 +64,10 @@ def determine_device_status(sensor_data: SensorFull) -> tuple[DeviceState, Alert
                 # Device is physically on but should be off
                 return DeviceState.WORKING, AlertSeverity.CRITICAL
                 
-            elif not working and toggle:
-                # Device is physically off but should be on
-                return DeviceState.POWER_LOST, AlertSeverity.CRITICAL
+            # elif not working and toggle:
+            #     print(f"Power lost, due to working: {working}, toggle: {toggle}, power: {sensor_data.power}")
+            #     # Device is physically off but should be on
+            #     return DeviceState.POWER_LOST, AlertSeverity.CRITICAL
         
         # Critical condition: no voltage
         else:
