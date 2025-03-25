@@ -23,7 +23,7 @@ async def check_idle_devices_task():
             # Calculate how long to wait before the next check
             # We want to run approximately once a minute
             execution_time = end_time - start_time
-            wait_time = max(60 - execution_time, 5)  # Minimum 5 seconds between checks
+            wait_time = max(60 - execution_time, 10)  # Minimum 5 seconds between checks
             
             await asyncio.sleep(wait_time)
         except Exception as e:

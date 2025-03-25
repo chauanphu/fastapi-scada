@@ -4,7 +4,6 @@ from models.device import Device
 from models.report import SensorModel, SensorFull
 from datetime import datetime, timedelta
 from database.redis import get_redis_connection
-from services.alert import process_data
 import json
 import pytz
 from crud.device import verify_owner

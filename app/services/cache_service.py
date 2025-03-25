@@ -9,7 +9,7 @@ from models.alert import DeviceState
 from models.device import Device
 from utils import get_real_time
 from utils.logging import logger
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List
 from fastapi.encoders import jsonable_encoder
 from utils import config
 
@@ -18,7 +18,6 @@ class CacheService:
         self.redis = get_redis_connection()
         self.DEVICE_KEY_PREFIX = "device:"
         self.ID_MAC_KEY_PREFIX = "id_mac:"
-        self.STATE_KEY_PREFIX = "state:"  # Legacy, for backward compatibility
         self.DEVICE_TTL = 60  # 1 hour cache expiry
         self.IDLE_TIMEOUT = config.IDLE_TIME  # 1 minute threshold for disconnected status (changed from 20)
     
@@ -64,19 +63,8 @@ class CacheService:
         device_data = self.get_device_by_id(device_id)
         if device_data and "state" in device_data:
             return device_data["state"]
-            
-        # Fallback to legacy key
-        if not self.is_available():
-            return None
-        
-        try:
-            state = self.redis.get(f"{self.STATE_KEY_PREFIX}{device_id}")
-            return state.decode("utf-8") if state else ""
-        except Exception as e:
-            logger.error(f"Error getting device state: {e}")
-            return None
     
-    def update_device_state(self, device_id: str, mac: str, state: str) -> bool:
+    def update_device_state(self, mac: str, state: str) -> bool:
         """Update the state of a device in the cache"""
         if not self.is_available():
             return False
@@ -85,10 +73,7 @@ class CacheService:
             # Get the current cached device data
             device_data = self.get_device_by_mac(mac)
             if not device_data:
-                # If device isn't in cache, we can't update its state
                 # logger.warning(f"Cannot update state for device not in cache: {mac}")
-                # Still set the legacy state key for backward compatibility
-                self.redis.set(f"{self.STATE_KEY_PREFIX}{device_id}", state)
                 return False
             
             # Check if we're changing from DISCONNECTED to another state
@@ -108,15 +93,12 @@ class CacheService:
                 json.dumps(device_data),
             )
             
-            # Also update the legacy state key for backward compatibility
-            self.redis.set(f"{self.STATE_KEY_PREFIX}{device_id}", state)
-            
             return True
         except Exception as e:
             logger.error(f"Error updating device state: {e}")
             return False
     
-    def set_device(self, device: Device, state: str = DeviceState.DISCONNECTED.value) -> bool:
+    def set_device(self, device: Device, state: str = "") -> bool:
         """Cache device information with optional state"""
         if not self.is_available():
             return False
@@ -127,31 +109,20 @@ class CacheService:
             mac = device_data.get("mac", "")
             
             if not mac or not device_id:
-                logger.warning(f"Invalid device data for caching: missing mac or id")
+                logger.warning("Invalid device data for caching: missing mac or id")
                 return False
             
-            # Include state in device data
-            device_data["state"] = state
-            # Add last_seen timestamp
+            # Cache only the general info and control settings; state is optional
+            device_data["state"] = state or ""
             device_data["last_seen"] = get_real_time().timestamp()
             
-            # Store device data by MAC address
-            self.redis.set(
-                f"{self.DEVICE_KEY_PREFIX}{mac}", 
-                json.dumps(device_data),
-            )
-            
-            # Store mapping from device_id to MAC
-            self.redis.set(
-                f"{self.ID_MAC_KEY_PREFIX}{device_id}", 
-                mac,
-            )
-            
+            self.redis.set(f"{self.DEVICE_KEY_PREFIX}{mac}", json.dumps(device_data))
+            self.redis.set(f"{self.ID_MAC_KEY_PREFIX}{device_id}", mac)
             return True
         except Exception as e:
             logger.error(f"Error setting device in cache: {e}")
             return False
-    
+
     def delete_device(self, device: Device) -> bool:
         """Remove device from cache"""
         if not self.is_available():
@@ -169,7 +140,7 @@ class CacheService:
             logger.error(f"Error deleting device from cache: {e}")
             return False
     
-    def initialize_device_cache(self) -> int:
+    def init_device_cache(self) -> int:
         """
         Initialize cache with all devices from database.
         Returns the number of devices cached.
@@ -191,20 +162,8 @@ class CacheService:
             
             for device_data in devices:
                 device = Device(**device_data)
-                device_id = str(device.id)
-                
-                # Get current state if exists
-                state = ""
-                try:
-                    state_key = f"{self.STATE_KEY_PREFIX}{device_id}"
-                    state_bytes = self.redis.get(state_key)
-                    if state_bytes:
-                        state = state_bytes.decode("utf-8")
-                except Exception:
-                    pass
-                
-                # Cache the device with its state
-                self.set_device(device, state)
+                # Remove redundant state retrieval since only general info and control settings are cached initially
+                self.set_device(device)
                 count += 1
                 
             logger.info(f"Cache initialized with {count} devices")
@@ -235,9 +194,8 @@ class CacheService:
                 if data:
                     try:
                         device = json.loads(data)
-                        # Make sure device has a state field (even if it's empty)
-                        if "state" not in device:
-                            device["state"] = ""
+                        # Use setdefault to ensure a state field exists
+                        device.setdefault("state", "")
                         devices.append(device)
                     except Exception as e:
                         logger.error(f"Error parsing device data: {e}")
@@ -268,25 +226,21 @@ class CacheService:
                 logger.warning(f"Device with MAC {mac} not found in cache")
                 return False
                 
+            # Convert sensor_data to ensure JSON serializability (e.g., datetime objects to serializable types)
+            sensor_data = jsonable_encoder(sensor_data)
+                
             # Add last_seen timestamp
             device_data["last_seen"] = get_real_time().timestamp()
                 
             # Merge the sensor data with existing device data
-            # This preserves important fields like tenant_id, name, etc.
             device_data.update(sensor_data)
             
-            # Preserve state if it exists
-            if "state" not in device_data:
-                device_data["state"] = ""
-            # If current state is DISCONNECTED, change it to empty state
-            # so it can be updated by the status manager
-            elif device_data["state"] == DeviceState.DISCONNECTED.value:
-                device_data["state"] = ""
+            # Simplify state preservation: if current state is DISCONNECTED, reset; otherwise preserve or default to empty
+            device_data["state"] = "" if device_data.get("state") == DeviceState.DISCONNECTED.value else device_data.get("state", "")
                 
-            # Store updated device data
             self.redis.set(
                 f"{self.DEVICE_KEY_PREFIX}{mac}",
-                json.dumps(jsonable_encoder(device_data)),
+                json.dumps(device_data),
             )
             
             return True

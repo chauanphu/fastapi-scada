@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
         # Start MQTT client
         client.connect()
         client.loop_start()
-        count = cache_service.initialize_device_cache()
+        count = cache_service.init_device_cache()
         print(f"Initialized cache with {count} devices")
         
         # Start background task for idle device checking

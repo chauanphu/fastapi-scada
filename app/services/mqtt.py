@@ -96,7 +96,7 @@ class Client(mqtt_client.Client):
             if not device_info:
                 # Try to get from database via cache service
                 cache_unknown_device(mac)
-                logger.warning(f"Device with MAC {mac} not found in cache, cannot update status")
+                # logger.warning(f"Device with MAC {mac} not found in cache, cannot update status")
                 return None, None
                 
             # Update device in cache with new sensor data

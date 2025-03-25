@@ -20,12 +20,6 @@ def get_cached_alert(device_id: str) -> str:
     device_data = cache_service.get_device_by_id(device_id)
     if device_data and "state" in device_data:
         return device_data["state"]
-    
-    # Fallback to legacy method
-    redis = get_redis_connection()
-    if redis:
-        cached_alert = redis.get("state:" + device_id)
-        return cached_alert.decode("utf-8") if cached_alert else ""
     return ""
 
 # Pub/sub latest alert message
@@ -38,10 +32,6 @@ def publish_alert(message: AlertModel, tenant_id: str):
     redis = get_redis_connection()
     redis.publish("alert:" + tenant_id, message.model_dump_json())
 
-def reset_alert_count(device_id: str):
-    redis = get_redis_connection()
-    redis.set("alert_count:" + device_id, 0)
-
 def process_data(data: SensorFull, tenant_id: str):
     """Process sensor data to determine status and create alerts if needed"""
     try:
@@ -50,7 +40,7 @@ def process_data(data: SensorFull, tenant_id: str):
         device_id = data.device_id
         mac = data.mac
         # Update the device state in the cache
-        cache_service.update_device_state(device_id, mac, state.value)
+        cache_service.update_device_state(mac, state.value)
         # Do not create an alert for normal status
         if severity == AlertSeverity.NORMAL:
             return
@@ -127,9 +117,6 @@ def check_idle_devices() -> int:
                         # Save to database
                         alert_collection = get_alerts_collection(tenant_id)
                         alert_collection.insert_one(new_alert.model_dump())
-                        
-                        # Also update legacy state key
-                        cache_service.redis.set(f"{cache_service.STATE_KEY_PREFIX}{device_id}", DeviceState.DISCONNECTED.value)
                         
                         logger.info(f"Device {device_name} marked as disconnected due to inactivity")
                         disconnected_count += 1

@@ -28,21 +28,6 @@ The device status include:
 - POWER_lOST: if voltage is 0.
 - DISCONNECTED: if the device has not received signals.
 
-## Device cache
-
-The device data is cached in Redis. The key is `device_{mac_address}`
-
-The cache data includes:
-
-- `device_id`
-- `device_name`
-- `latitude`
-- `longitude`
-- `tenant_id`: Id of the tenant
-- Working schedule
-- Latest data from IoT
-- `device_status`
-
 For example:
 ```
 {
@@ -58,7 +43,6 @@ For example:
   "tenant_id": "67df7a1c7faefb48db542462",
   "state": "Thiết bị hoạt động",
   "last_seen": 1742789747.806789,
-  "device_id": "67e0c7561e0ed75714dd1aea",
   "timestamp": "2025-03-24T11:15:47+07:00",
   "voltage": 231.6,
   "current": 0.02,
@@ -66,7 +50,6 @@ For example:
   "power_factor": 0.95,
   "total_energy": 0.0,
   "energy_meter": 168.62,
-  "device_name": "H08 - Bến Chùa 1",
   "latitude": 10.84177167,
   "longitude": 106.6051683
 }
