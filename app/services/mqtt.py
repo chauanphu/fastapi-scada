@@ -8,11 +8,11 @@ import random
 from datetime import datetime
 import json
 from paho.mqtt import client as mqtt_client
-from crud.report import create_sensor_data
+from crud.report import add_data, cache_unknown_device
 from utils.logging import logger
 from services.cache_service import cache_service
-from services.alert import process_data
-from models.report import SensorFull
+from services import alert
+from models.report import SensorFull, SensorModel
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
@@ -59,41 +59,65 @@ class Client(mqtt_client.Client):
                     
             payload["total_energy"] = (payload["power"] / 1000 / 360) * payload["power_factor"]
 
-            # Insert data to MongoDB
-            create_sensor_data(payload)
-            
             # Process the device status and update cache
-            self.process_device_status(mac, payload)
+            db_data, full_data = self.preprocess(mac, payload)
+            if db_data is None or full_data is None:
+                return
+            tenant_id = full_data.tenant_id
+            # Insert data to MongoDB
+            add_data(db_data, tenant_id)
+
+            # Downstream processing and alerting
+            alert.process_data(full_data, tenant_id)
 
         except Exception as e:
             logger.error(f"Failed to parse data from {mac}: {e}")
             return
     
-    def process_device_status(self, mac: str, payload: dict):
-        """Process device status update and update cache/alerts"""
+    def preprocess(self, mac: str, payload: dict):
+        """
+        Preprocess raw payload
+
+        1. Get the current device info from cache. 
+           - a. If not exist then get from mongodb. 
+           - b. If still not exist then return.
+        2. Format and prepare data for MongoDB and downstream processing
+        3. Return both the device data for db insertion and the sensor data for processing.
+        """
         try:
+            # Transform GPS coordinates
+            payload["latitude"] = payload.get("gps_lat", 0)
+            payload["longitude"] = payload.get("gps_log", 0)
+            if "gps_lat" in payload: del payload["gps_lat"]
+            if "gps_log" in payload: del payload["gps_log"]
+            
             # Get device info from cache
             device_info = cache_service.get_device_by_mac(mac)
-            
             if not device_info:
-                # logger.warning(f"Device with MAC {mac} not found in cache, cannot update status")
-                return
+                # Try to get from database via cache service
+                cache_unknown_device(mac)
+                logger.warning(f"Device with MAC {mac} not found in cache, cannot update status")
+                return None, None
                 
-            # Update device in cache with latest data
-            cache_service.update_device_with_sensor_data(payload)
+            # Update device in cache with new sensor data
+            cache_service.update_device_sensor(payload)
             
-            # Create a SensorFull object for status determination
+            # Combine device info with sensor data
             device_data = {**device_info, **payload}
-            sensor_full = SensorFull(**device_data)
             
-            # Process alert and status
-            if "tenant_id" in device_info:
-                process_data(sensor_full, device_info["tenant_id"])
-            else:
-                logger.warning(f"Device {mac} has no tenant_id, cannot process alerts")
-                
+            # Ensure device_id and device_name are properly set
+            device_data["device_id"] = str(device_data.get("_id"))
+            device_data["device_name"] = device_data.get("name")
+            
+            # Create properly formatted data models
+            sensor_data = SensorModel(**device_data)     # for MongoDB insertion
+            sensor_full = SensorFull(**device_data)      # for status determination downstream
+            
+            return sensor_data, sensor_full
+          
         except Exception as e:
             logger.error(f"Error processing device status for {mac}: {e}")
+            return None, None
 
     def handle_connection(self, mac: str, payload):
         pass

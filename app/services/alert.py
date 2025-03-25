@@ -5,7 +5,6 @@ This service is responsible for checking the status of the device and generating
 import json
 from models.report import SensorFull
 from models.alert import AlertModel, AlertModelFull, DeviceState, AlertSeverity
-from datetime import datetime
 import pytz
 from database.mongo import get_alerts_collection
 from database.redis import get_redis_connection
@@ -48,21 +47,16 @@ def process_data(data: SensorFull, tenant_id: str):
     try:
         # Determine device status using the status manager
         state, severity = determine_device_status(data)
-        # Update the device state in the cache
         device_id = data.device_id
         mac = data.mac
-        
         # Update the device state in the cache
         cache_service.update_device_state(device_id, mac, state.value)
-        
-        # No need to create an alert for normal status
+        # Do not create an alert for normal status
         if severity == AlertSeverity.NORMAL:
             return
-            
-        # Check if this is a new state that needs an alert
+        # Create alert only if state has changed (to avoid redundancy)
         current_state = get_cached_alert(device_id)
         if current_state != state.value or not current_state:
-            # Create new alert
             new_alert = AlertModel(
                 state=state,
                 device=device_id,
@@ -70,15 +64,12 @@ def process_data(data: SensorFull, tenant_id: str):
                 timestamp=get_real_time(),
                 severity=severity
             )
-            
-            # Save alert to database
             alert_collection = get_alerts_collection(tenant_id)
             alert_collection.insert_one(new_alert.model_dump())
-
-            # Publish alert for real-time notifications
             full_alert = AlertModelFull(**new_alert.model_dump(), mac=data.mac, tenant_id=tenant_id)
             publish_alert(full_alert, tenant_id)
-            
+        return
+          
     except Exception as e:
         logger.error(f"Failed to process alert data: {e}")
         return

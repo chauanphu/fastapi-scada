@@ -11,7 +11,6 @@ SUPERADMIN_EMAIL = config("SUPERADMIN_EMAIL")
 SECRET_KEY = config("SECRET_KEY")  # Replace with a secure key
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day in minutes
-POWERLOST_THRESHOLD = 50 # 50W
 DEBUG = config("DEBUG", default=False, cast=bool)
 ACCESS_TOKEN_EXPIRE_MINUTES = config("ACCESS_TOKEN_EXPIRE_MINUTES", default=60, cast=int) # 1 hour
 
@@ -22,3 +21,7 @@ MQTT_CLIENT_ID = config("MQTT_CLIENT_ID")
 
 # Mongo
 MONGO_URI = config("MONGO_URI")
+
+# RUNTIME CONFIG
+IDLE_TIME = config("IDLE_TIME", default=10, cast=int) # 5 seconds
+POWERLOST_THRESHOLD = 50 # 50W

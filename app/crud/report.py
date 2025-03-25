@@ -18,33 +18,25 @@ def cache_unknown_device(mac: str) -> None:
     redis.sadd("unknown_devices", mac)
     redis.expire("unknown_devices", 60)
 
-def create_sensor_data(data: dict) -> str:
-    # Check if the device exists in the database
-    data["latitude"] = data["gps_lat"]
-    data["longitude"] = data["gps_log"]
-    del data["gps_lat"]
-    del data["gps_log"]
-    cached_data = mac2device(data["mac"])
-    if cached_data is None:
-        # Cache the unknown device
-        cache_unknown_device(data["mac"])
-        return None
-    # Add the sensor data to device_data: power, voltage,...
-    tenant_id = cached_data["tenant_id"]
-    cached_data.update(data)
-    sensor_data = SensorModel(**cached_data)
-    device_data: SensorFull = SensorFull(**cached_data) # Enforce the model schema
-    
-    # Insert the sensor data to the database
+def add_data(data: SensorModel, tenant_id: str) -> str:
+    """
+    Insert sensor data into MongoDB, avoiding redundancy.
+    Assumes data has already been preprocessed and contains tenant_id.
+    """
+    # Get the sensor collection for the tenant
     sensor_collection = get_sensors_collection(tenant_id)
-    sensor = sensor_collection.insert_one(sensor_data.model_dump())
     
-    # Update the device cache with sensor data
-    cache_service.update_device_with_sensor_data(device_data.model_dump())
+    # Check if sensor data with same device_id and timestamp already exists
+    existing = sensor_collection.find_one({
+        "device_id": data.device_id,
+        "timestamp": data.timestamp
+    })
     
-    # Process the data for alerting
-    process_data(device_data, tenant_id)
-
+    if existing:
+        return existing.get("_id")
+        
+    # Insert the sensor data
+    sensor = sensor_collection.insert_one(data.model_dump())
     return sensor.inserted_id
 
 def mac2device(mac: str) -> dict:

@@ -11,6 +11,7 @@ from utils import get_real_time
 from utils.logging import logger
 from typing import Optional, Dict, Any, List, Union
 from fastapi.encoders import jsonable_encoder
+from utils import config
 
 class CacheService:
     def __init__(self):
@@ -19,7 +20,7 @@ class CacheService:
         self.ID_MAC_KEY_PREFIX = "id_mac:"
         self.STATE_KEY_PREFIX = "state:"  # Legacy, for backward compatibility
         self.DEVICE_TTL = 60  # 1 hour cache expiry
-        self.IDLE_TIMEOUT = 60  # 1 minute threshold for disconnected status (changed from 20)
+        self.IDLE_TIMEOUT = config.IDLE_TIME  # 1 minute threshold for disconnected status (changed from 20)
     
     def is_available(self) -> bool:
         """Check if Redis is available"""
@@ -91,7 +92,8 @@ class CacheService:
                 return False
             
             # Check if we're changing from DISCONNECTED to another state
-            previous_state = device_data.get("state", "")
+            previous_state = device_data.get("state", DeviceState.DISCONNECTED.value)
+
             if previous_state == DeviceState.DISCONNECTED.value and state != DeviceState.DISCONNECTED.value:
                 # Update the last_seen timestamp to prevent immediate disconnection
                 device_data["last_seen"] = get_real_time().timestamp()
@@ -114,7 +116,7 @@ class CacheService:
             logger.error(f"Error updating device state: {e}")
             return False
     
-    def set_device(self, device: Device, state: str = "") -> bool:
+    def set_device(self, device: Device, state: str = DeviceState.DISCONNECTED.value) -> bool:
         """Cache device information with optional state"""
         if not self.is_available():
             return False
@@ -246,7 +248,7 @@ class CacheService:
             logger.error(f"Error getting devices with states: {e}")
             return []
 
-    def update_device_with_sensor_data(self, sensor_data: dict) -> bool:
+    def update_device_sensor(self, sensor_data: dict) -> bool:
         """
         Update device cache with latest sensor data from MQTT
         This preserves existing fields like tenant_id, name, etc. while updating sensor readings
