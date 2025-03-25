@@ -3,9 +3,6 @@
 This service manages caching for IoT devices to reduce database access.
 """
 import json
-from database.mongo import device_collection
-from database.redis import get_redis_connection
-from models.alert import DeviceState
 from models.device import Device
 from utils import get_real_time
 from utils.logging import logger
@@ -28,8 +25,8 @@ class CacheService:
             password=REDIS_PASSWORD
         )
         self.DEVICE_KEY_PREFIX = "device:"
-        self.DEVICE_TTL = 60 * 60 * 24 * 7  # 7 days
-        self.IDLE_TIMEOUT = 60 * 5  # 5 minutes
+        self.DEVICE_TTL = 60 * 60 * 24 # 24 hours
+        self.IDLE_TIMEOUT = config.IDLE_TIME
     
     def is_available(self) -> bool:
         """Check if Redis is available"""
@@ -98,10 +95,6 @@ class CacheService:
             # Use custom serializer that handles datetime objects
             self.redis.set(key, json_serialize(device), ex=self.DEVICE_TTL)
             
-            # Publish device update event using synchronous method
-            # tenant_id = device.get("tenant_id")
-            # if tenant_id:
-            #     event_bus.publish_sync(f"device_status:{tenant_id}", device)
         except Exception as e:
             logger.error(f"Failed to update device sensor data: {e}")
 
@@ -115,6 +108,7 @@ class CacheService:
             
             # Update the state
             device["state"] = state
+            device["last_seen"] = get_real_time().timestamp()
             key = f"{self.DEVICE_KEY_PREFIX}{mac}"
             # Use custom serializer that handles datetime objects
             self.redis.set(key, json_serialize(device), ex=self.DEVICE_TTL)

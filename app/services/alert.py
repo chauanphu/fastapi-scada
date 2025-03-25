@@ -90,19 +90,23 @@ def check_idle_devices() -> int:
         # Current timestamp for comparison
         current_time = get_real_time().timestamp()
         disconnected_count = 0
-        
+        disconnected_devices = []
         # Check each device
         for key in device_keys:
             try:
                 device_data = json.loads(cache_service.redis.get(key))
-                
+                tenant_id = device_data.get("tenant_id", "")
+
                 # Skip devices that are already marked as disconnected
-                if device_data.get("state") == DeviceState.DISCONNECTED.value:
+                if device_data.get("state") == DeviceState.DISCONNECTED.value and tenant_id:
+                    disconnected_devices.append((tenant_id, device_data))
                     continue
                 
                 # Check if device has a last_seen timestamp and if it's too old
                 last_seen = device_data.get("last_seen")
-                if not last_seen or (current_time - float(last_seen)) > cache_service.IDLE_TIMEOUT:
+                if not last_seen:
+                    raise ValueError("Device has no last_seen timestamp")
+                if (current_time - float(last_seen)) > cache_service.IDLE_TIMEOUT:
                     # Mark as disconnected
                     device_data["state"] = DeviceState.DISCONNECTED.value
                     
@@ -112,7 +116,6 @@ def check_idle_devices() -> int:
                     # Create new alert for disconnected device
                     device_id = device_data.get("_id", "")
                     device_name = device_data.get("name", "Unknown device")
-                    tenant_id = device_data.get("tenant_id", "")
                     
                     if device_id and tenant_id:
                         new_alert = AlertModel(
@@ -126,7 +129,7 @@ def check_idle_devices() -> int:
                         # Save to database
                         alert_collection = get_alerts_collection(tenant_id)
                         alert_collection.insert_one(new_alert.model_dump())
-                        
+                        disconnected_devices.append((tenant_id, device_data))
                         logger.info(f"Device {device_name} marked as disconnected due to inactivity")
                         disconnected_count += 1
                     
@@ -134,7 +137,7 @@ def check_idle_devices() -> int:
                 logger.error(f"Error processing device {key}: {e}")
                 continue
                 
-        return disconnected_count
+        return disconnected_count, disconnected_devices
     except Exception as e:
         logger.error(f"Error checking for idle devices: {e}")
         return 0

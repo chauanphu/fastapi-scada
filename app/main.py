@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
         create_superadmin()
         # Start MQTT client
         client.connect()
-        
+        client.loop_start()
         # Start background task for idle device checking
         idle_task = asyncio.create_task(check_idle_devices_task())
         

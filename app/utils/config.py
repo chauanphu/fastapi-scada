@@ -27,5 +27,5 @@ REDIS_DB = config("REDIS_DB", default=0, cast=int)
 REDIS_PASSWORD = config("REDIS_PASSWORD", default=None)
 
 # RUNTIME CONFIG
-IDLE_TIME = config("IDLE_TIME", default=10, cast=int) # 5 seconds
+IDLE_TIME = config("IDLE_TIME", default=15, cast=int) # 5 seconds
 POWERLOST_THRESHOLD = 50 # 50W
