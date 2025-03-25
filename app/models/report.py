@@ -11,7 +11,7 @@ class EnergyReportResponse(BaseModel):
     timestamp: datetime
     total_energy: float
 
-class SensorModel(BaseModel):
+class SensorData(BaseModel):
     mac: str
     device_id: str
     timestamp: datetime
@@ -23,8 +23,12 @@ class SensorModel(BaseModel):
     energy_meter: float
     toggle: bool
 
-class SensorFull(SensorModel):
-    device_name: str
+class SensorModel(SensorData):
+    device_id: str
+
+class SensorFull(SensorData):
+    _id: str # This is device_id
+    name: str
     toggle: bool
     auto: bool
     hour_on: int

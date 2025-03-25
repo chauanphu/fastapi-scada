@@ -12,7 +12,7 @@ def create_device(device: DeviceCreate) -> Device:
         **device.model_dump()
     )
     # Cache the new device
-    cache_service.set_device(device)
+    cache_service.config_settings(device)
     return device
 
 def read_device(device_id: str) -> Device | None:
@@ -25,7 +25,7 @@ def read_device(device_id: str) -> Device | None:
     device = device_collection.find_one({"_id": bson.ObjectId(device_id)})
     if device:
         device_obj = Device(**device)
-        cache_service.set_device(device_obj)
+        cache_service.config_settings(device_obj)
         return device_obj
     return None
 
@@ -39,7 +39,7 @@ def read_device_by_mac(mac: str) -> Device | None:
     device = device_collection.find_one({"mac": mac})
     if device:
         device_obj = Device(**device)
-        cache_service.set_device(device_obj)
+        cache_service.config_settings(device_obj)
         return device_obj
     return None
 
@@ -78,7 +78,7 @@ def configure_device(current_user: User, device_id: str, device: DeviceConfigure
     
     updated = Device(**updated)
     # Update device in cache
-    cache_service.set_device(updated)
+    cache_service.config_settings(updated)
     return updated
 
 def update_device(device_id: str, device: DeviceEdit) -> Device:
@@ -92,7 +92,7 @@ def update_device(device_id: str, device: DeviceEdit) -> Device:
     # Update the device in cache
     if updated:
         device_obj = Device(**updated)
-        cache_service.set_device(device_obj)
+        cache_service.config_settings(device_obj)
     return updated
 
 def delete_device(device_id: str) -> Device:

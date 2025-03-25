@@ -1,19 +1,32 @@
+import redis
+import redis.asyncio
 from datetime import timedelta
 from typing import Callable, Coroutine
-from redis import Redis
 from redis.exceptions import ConnectionError
 
-from utils.config import REDIS_HOST, REDIS_PORT
+from utils.config import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
 from utils.logging import logger
 
+# Existing synchronous connection
 def get_redis_connection():
-    try:
-        redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=0)
-        return redis
-    except ConnectionError:
-        logger.error(f"Unable to connect to Redis server at {REDIS_HOST}:{REDIS_PORT}")
-        return None
-    
+    return redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True
+    )
+
+# New asynchronous connection
+async def get_async_redis_connection():
+    return redis.asyncio.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True
+    )
+
 # Add a refresh token into Redis list with expiration time
 def set_refresh_token(token, expires: timedelta):
     redis = get_redis_connection()

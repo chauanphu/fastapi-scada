@@ -12,6 +12,7 @@ from utils import get_real_time
 from utils.logging import logger
 from services.cache_service import cache_service
 from services.status_manager import determine_device_status
+from services.event_bus import event_bus
 
 local_tz = pytz.timezone('Asia/Ho_Chi_Minh')  # Or your local timezone
 
@@ -29,8 +30,16 @@ def subscribe_alert():
     return pubsub
 
 def publish_alert(message: AlertModel, tenant_id: str):
+    # Use the event bus instead of direct redis publish
     redis = get_redis_connection()
+    # Use model_dump_json() which already handles datetime serialization
     redis.publish("alert:" + tenant_id, message.model_dump_json())
+    
+    # Also publish via event bus for future compatibility - use sync method
+    try:
+        event_bus.publish_sync("alert:" + tenant_id, message.model_dump())
+    except Exception as e:
+        logger.error(f"Failed to publish alert via event bus: {e}")
 
 def process_data(data: SensorFull, tenant_id: str):
     """Process sensor data to determine status and create alerts if needed"""
