@@ -8,7 +8,7 @@ from database.mongo import get_users_collection
 from utils.auth import hash_password
 from utils.config import SUPERADMIN_USERNAME, SUPERADMIN_PASSWORD, SUPERADMIN_EMAIL, FRONTEND_ENDPOINT, DEBUG
 from utils.logging import logger
-from services.cache_service import cache_service
+from crud.device import init
 from services.mqtt import client
 from background_tasks import check_idle_devices_task
 import asyncio
@@ -33,6 +33,10 @@ async def lifespan(app: FastAPI):
     try:
         redis.get_redis_connection()
         create_superadmin()
+        
+        # Initialize device cache
+        await init()
+        
         # Start MQTT client
         client.connect()
         client.loop_start()

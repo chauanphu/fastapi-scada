@@ -10,7 +10,6 @@ from typing import Optional, Dict, Any, List
 from fastapi.encoders import jsonable_encoder
 from utils import config
 import redis
-import asyncio
 from redis.exceptions import RedisError
 from utils.config import REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASSWORD
 from services.event_bus import event_bus
@@ -162,6 +161,33 @@ class CacheService:
                 logger.warning(f"Cannot remove device without MAC address: {device.id}")
         except Exception as e:
             logger.error(f"Failed to remove device from cache: {e}")
+
+    def cache_device(self, devices: List[Device]) -> None:
+        if not self.is_available():
+            logger.error("Redis is not available, cannot initialize cache")
+            return
+        for device in devices:
+            device_data = jsonable_encoder(device)
+            
+            # Set default values for realtime fields
+            current_time = get_real_time().timestamp()
+            device_data["last_seen"] = current_time
+            device_data["state"] = ""
+            
+            # Cache the device data
+            if device.mac:
+                key = f"{self.DEVICE_KEY_PREFIX}{device.mac}"
+                self.redis.set(key, json_serialize(device_data), ex=self.DEVICE_TTL)
+        
+        logger.info(f"Successfully cached {len(devices)} devices")
+        
+    def clear(self):
+        """Clear all cache data"""
+        try:
+            self.redis.flushdb()
+            logger.info("Cache cleared successfully")
+        except Exception as e:
+            logger.error(f"Failed to clear cache: {e}")
 
 # Create a singleton instance
 cache_service = CacheService()

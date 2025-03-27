@@ -85,7 +85,7 @@ def check_idle_devices() -> int:
         # Get all device keys
         device_keys = cache_service.redis.keys(f"{cache_service.DEVICE_KEY_PREFIX}*")
         if not device_keys:
-            return 0
+            return 0, []
             
         # Current timestamp for comparison
         current_time = get_real_time().timestamp()
