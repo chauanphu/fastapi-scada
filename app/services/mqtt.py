@@ -175,7 +175,7 @@ class Client(mqtt_client.Client):
 
     # Update a device
     def update_device(self, mac: str, version: str):
-        topic = f"unit/{mac}/update"
+        topic = f"unit/{mac}/firmware/update"
         body = {
             "version": version if version else "latest"
         }

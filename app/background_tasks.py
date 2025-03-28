@@ -21,7 +21,7 @@ async def check_idle_devices_task():
                 tenant_id, device_data = device
                 logger.debug(f"Publishing device status update for tenant {tenant_id}")
                 event_bus.publish_sync(f"device_status:{tenant_id}", device_data)
-            wait_time = 35
+            wait_time = 25
             
             await asyncio.sleep(wait_time)
         except Exception as e:

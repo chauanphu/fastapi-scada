@@ -83,8 +83,8 @@ def check_idle_devices() -> int:
         
     try:
         # Get all device keys
-        device_keys = cache_service.redis.keys(f"{cache_service.DEVICE_KEY_PREFIX}*")
-        if not device_keys:
+        devices = cache_service.get_all_devices()
+        if not devices:
             return 0, []
             
         # Current timestamp for comparison
@@ -92,9 +92,8 @@ def check_idle_devices() -> int:
         disconnected_count = 0
         disconnected_devices = []
         # Check each device
-        for key in device_keys:
+        for device_data in devices:
             try:
-                device_data = json.loads(cache_service.redis.get(key))
                 tenant_id = device_data.get("tenant_id", "")
 
                 # Skip devices that are already marked as disconnected
@@ -111,7 +110,7 @@ def check_idle_devices() -> int:
                     device_data["state"] = DeviceState.DISCONNECTED.value
                     
                     # Update device in cache
-                    cache_service.redis.set(key, json.dumps(device_data), ex=cache_service.DEVICE_TTL)
+                    cache_service.update_device_state(device_data.get("mac"), DeviceState.DISCONNECTED.value)
                     
                     # Create new alert for disconnected device
                     device_id = device_data.get("_id", "")
@@ -134,7 +133,7 @@ def check_idle_devices() -> int:
                         disconnected_count += 1
                     
             except Exception as e:
-                logger.error(f"Error processing device {key}: {e}")
+                logger.error(f"Error checking device for idle status: {e}")
                 continue
                 
         return disconnected_count, disconnected_devices
