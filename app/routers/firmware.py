@@ -5,7 +5,7 @@ from models.auth import User
 from models.device import Device
 from models.firmware import MetaData
 from utils.auth import Role, RoleChecker
-from crud.firmware import add_new_firmware, check_firmware_exists, get_firmware_by_version, get_latest_firmware, get_all_metadata as crud_get_all_metadata
+from crud.firmware import add_new_firmware, check_firmware_exists, get_firmware_by_version, get_latest_firmware, get_all_metadata as crud_get_all_metadata, delete_firmware_by_version
 from crud.device import read_device
 from utils.logging import logger
 from services.mqtt import client
@@ -181,3 +181,32 @@ async def mass_update_devices(
     except Exception as e:
         logger.error(f"Failed to update devices: {e}")
         raise HTTPException(status_code=500, detail="Failed to update devices")
+
+# Delete firmware
+@router.delete("/{version}")
+async def delete_firmware(
+    current_user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))],
+    version: str
+):
+    try:
+        # Check if the firmware exists
+        firmware = get_firmware_by_version(version)
+        if not firmware:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Firmware with specified version not found."
+            )
+        
+        # Delete the firmware
+        if delete_firmware_by_version(version):
+            return {"message": f"Firmware version {version} successfully deleted"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete firmware."
+            )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        logger.error(f"Failed to delete firmware: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete firmware")

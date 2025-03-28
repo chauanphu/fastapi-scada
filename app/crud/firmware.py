@@ -54,3 +54,16 @@ def get_all_metadata() -> list[MetaData]:
     fs = get_fs()
     metadata = fs.find()
     return [MetaData.model_validate(file.metadata) for file in metadata]
+
+def delete_firmware_by_version(version: str) -> bool:
+    """
+    Delete a firmware by its version.
+    Returns True if the firmware was deleted, False if it wasn't found.
+    """
+    fs = get_fs()
+    result = fs.find_one({"metadata.version": version})
+    if result:
+        file_id = result._id
+        fs.delete(file_id)
+        return True
+    return False
