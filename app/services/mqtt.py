@@ -164,26 +164,22 @@ class Client(mqtt_client.Client):
     # Update all device
     def update_all(self, version: str):
         topic = "firmware/update"
-        body = {
-            "version": version if version else "latest"
-        }
+        body = "update_firmware"
         if DEBUG:
             print("Topic", topic)
             print("Body", body)
         else:
-            self.publish(topic, json.dumps(body))
+            self.publish(topic, body)
 
     # Update a device
     def update_device(self, mac: str, version: str):
-        topic = f"unit/{mac}/firmware/update"
-        body = {
-            "version": version if version else "latest"
-        }
+        topic = f"unit/{mac}firmware/update"
+        body = "update_firmware"
         if DEBUG:
             print("Topic", topic)
             print("Body", body)
         else:
-            self.publish(topic, json.dumps(body))
+            self.publish(topic, body)
 
     ## Override
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
