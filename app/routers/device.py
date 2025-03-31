@@ -40,7 +40,7 @@ def create_new_device(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{device_id}")
-def put_device(_: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN]))],
+def put_device(_: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.SUPERADMIN, Role.ADMIN]))],
     device_id: str, 
     device: DeviceEdit
     ):
