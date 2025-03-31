@@ -98,8 +98,7 @@ def check_idle_devices() -> int:
 
                 # Skip devices that are already marked as disconnected
                 if device_data.get("state") == DeviceState.DISCONNECTED.value and tenant_id:
-                    disconnected_devices.append((tenant_id, device_data))
-                    continue
+                    cache_service.update_last_seen(device_data.get("mac"), current_time - cache_service.IDLE_TIMEOUT - 1)
                 
                 # Check if device has a last_seen timestamp and if it's too old
                 last_seen = device_data.get("last_seen")

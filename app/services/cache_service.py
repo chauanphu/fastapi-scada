@@ -119,6 +119,22 @@ class CacheService:
         except Exception as e:
             logger.error(f"Failed to update device state: {e}")
     
+    def update_last_seen(self, mac: str, last_seen: float) -> None:
+        """Update the last seen timestamp of a device"""
+        try:
+            device = self.get_device_by_mac(mac)
+            if not device:
+                logger.warning(f"Device with MAC {mac} not found in cache, cannot update last seen")
+                return
+            
+            # Update the last seen timestamp
+            device["last_seen"] = last_seen
+            key = f"{self.DEVICE_KEY_PREFIX}{mac}"
+            # Use custom serializer that handles datetime objects
+            self.redis.set(key, json_serialize(device), ex=self.DEVICE_TTL)
+        except Exception as e:
+            logger.error(f"Failed to update last seen: {e}")
+            
     def get_devices_with_states(self) -> List[Dict[str, Any]]:
         """Get all devices with their states from cache"""
         return self.get_all_devices()
