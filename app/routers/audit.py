@@ -19,7 +19,7 @@ router = APIRouter(
 
 @router.get("/", response_model=dict)
 def get_filtered_audit_logs(
-    user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN]))],
+    user: Annotated[User, Depends(RoleChecker(allowed_roles=[Role.ADMIN, Role.SUPERADMIN, Role.MONITOR]))],
     username: str | None = None,
     action: Action | None = None,
     resource: str | None = None,
